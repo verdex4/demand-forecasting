@@ -45,4 +45,8 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 async def index(request: Request):
     return templates.TemplateResponse(request, "index.html")
 
+@app.get("/employee")
+async def employee(request: Request):
+    return templates.TemplateResponse(request, "employee.html")
+
 app.include_router(specialties.router, prefix="/api/v1")
