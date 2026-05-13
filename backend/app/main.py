@@ -5,6 +5,7 @@ from app.database import engine, Base, AsyncSessionLocal
 import app.models as models
 from app.seed import parse_excel, fill_specialties, fill_subjects_sets_apps, fill_births, fill_exams
 import asyncio
+from app.api.v1 import specialties
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,3 +38,5 @@ app = FastAPI(lifespan=lifespan)
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
+
+app.include_router(specialties.router, prefix="/api/v1")
