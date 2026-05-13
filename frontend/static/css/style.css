@@ -1,0 +1,78 @@
+:root {
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --text: #0f172a;
+    --text-light: #475569;
+    --border: #e2e8f0;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    --radius: 14px;
+    --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem 1rem;
+}
+
+.container {
+    max-width: 920px;
+    width: 100%;
+    text-align: center;
+}
+
+.header h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+}
+
+.subtitle {
+    color: var(--text-light);
+    font-size: 1.15rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.welcome-text {
+    font-size: 1.5rem;
+    margin: 3rem 0 2rem;
+    color: var(--text);
+}
+
+.role-selection {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.role-card {
+    background: var(--card-bg);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2.2rem 1.5rem;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow

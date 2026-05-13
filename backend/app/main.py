@@ -1,11 +1,14 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Request
 from sqlalchemy import select
+import asyncio
 from app.database import engine, Base, AsyncSessionLocal
+from contextlib import asynccontextmanager
 import app.models as models
 from app.seed import parse_excel, fill_specialties, fill_subjects_sets_apps, fill_births, fill_exams
-import asyncio
 from app.api.v1 import specialties
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from app.settings import STATIC_DIR, TEMPLATES_DIR
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,8 +38,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
 @app.get("/")
-def read_root():
-    return {"Hello": "World"}
+async def index(request: Request):
+    return templates.TemplateResponse(request, "index.html")
 
 app.include_router(specialties.router, prefix="/api/v1")
