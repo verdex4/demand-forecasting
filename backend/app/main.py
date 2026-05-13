@@ -49,4 +49,8 @@ async def index(request: Request):
 async def employee(request: Request):
     return templates.TemplateResponse(request, "employee.html")
 
+@app.get("/applicant")
+async def applicant(request: Request):
+    return templates.TemplateResponse(request, "applicant.html")
+
 app.include_router(specialties.router, prefix="/api/v1")

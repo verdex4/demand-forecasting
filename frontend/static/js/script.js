@@ -43,6 +43,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // визуальный отклик
         continueBtn.style.transform = 'scale(0.98)';
         setTimeout(() => continueBtn.style.transform = '', 150);
+        
+        // переход на страницу
+        if (selectedRole === 'employee') {
+            window.location.href = '/employee';
+        } else if (selectedRole === 'applicant') {
+            window.location.href = '/applicant';
+        }
     };
 
     roleButtons.forEach(btn => {
