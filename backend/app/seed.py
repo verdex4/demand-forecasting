@@ -9,7 +9,8 @@ exam_sets = {} # name: ExamSet
 # возможные комплекты для каждого направления
 spec_sets = {} # specialty_name: [ExamSet]
 
-def parse_excel() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+async def seed_from_excel(session: AsyncSession) -> None:
+    """Заполняет базу данных из Excel-файлов в папке data."""
     # специальности
     df_spec = pd.read_excel('data/application_stats.xlsx', sheet_name='Направления', dtype=str)
 
@@ -24,7 +25,14 @@ def parse_excel() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFram
     # статистика по экзаменам (данные взяты из документа Word)
     df_exams = pd.read_excel('data/exam_stats.xlsx')
 
-    return df_spec, df_apps, df_births, df_exams
+    # заполняем
+    await _fill_specialties(df_spec, session)
+    await _fill_subjects_sets_apps(df_apps, session)
+    await _fill_births(df_births, session)
+    await _fill_exams(df_exams, session)
+
+    await session.commit()
+
 
 def _transform_columns(df) -> pd.DataFrame:
     """Убирает NaN и Unnamed из заголовков (1 и 2 строки в Excel)."""
@@ -53,7 +61,7 @@ def _transform_rows(df) -> pd.DataFrame:
     df.iloc[:, 2] = df.iloc[:, 2].ffill() # протягиваем направление
     return df
 
-async def fill_specialties(df, session: AsyncSession):
+async def _fill_specialties(df, session: AsyncSession):
     for _, row in df.iterrows():
         code = str(row['Код'])
         name = str(row['Направление'])
@@ -63,7 +71,7 @@ async def fill_specialties(df, session: AsyncSession):
         session.add(spec)
     await session.flush()
 
-async def fill_subjects_sets_apps(df, session: AsyncSession):
+async def _fill_subjects_sets_apps(df, session: AsyncSession):
     for _, row in df.iterrows():
         # ДОБАВЛЯЕМ ПРЕДМЕТЫ
         subjects_raw = row[df.columns[1]]
@@ -131,7 +139,7 @@ async def fill_subjects_sets_apps(df, session: AsyncSession):
     
     await session.flush()
 
-async def fill_births(df, session: AsyncSession):
+async def _fill_births(df, session: AsyncSession):
     for _, row in df.iterrows():
         year = int(row['Год'])
         births = int(row['Количество рожденных'])
@@ -140,7 +148,7 @@ async def fill_births(df, session: AsyncSession):
 
     await session.flush()
 
-async def fill_exams(df, session: AsyncSession):
+async def _fill_exams(df, session: AsyncSession):
     for _, row in df.iterrows():
         subj_name = row['Предмет']
         subject = subjects[subj_name]

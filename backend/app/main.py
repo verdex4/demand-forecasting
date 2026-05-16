@@ -4,7 +4,7 @@ import asyncio
 from app.database import engine, Base, AsyncSessionLocal
 from contextlib import asynccontextmanager
 import app.models as models
-from app.seed import parse_excel, fill_specialties, fill_subjects_sets_apps, fill_births, fill_exams
+from app.seed import seed_from_excel
 from app.api.v1 import specialties
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -23,12 +23,7 @@ async def lifespan(app: FastAPI):
 
         if is_empty:
             print("База данных пуста. Импортируем данные из Excel...")
-            df_spec, df_apps, df_births, df_exams = await asyncio.to_thread(parse_excel)
-            await fill_specialties(df_spec, async_session)
-            await fill_subjects_sets_apps(df_apps, async_session)
-            await fill_births(df_births, async_session)
-            await fill_exams(df_exams, async_session)
-            await async_session.commit()
+            await seed_from_excel(async_session)
             print("Импорт успешно завершен.")
         else:
             print("База данных уже содержит данные. Пропуск импорта.")
