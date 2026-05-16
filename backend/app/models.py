@@ -1,5 +1,5 @@
 from typing import List
-from sqlalchemy import String, Integer, ForeignKey, BigInteger
+from sqlalchemy import String, Integer, ForeignKey, BigInteger, Float
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -70,6 +70,11 @@ class ApplicationStats(Base):
     applications: Mapped[int] = mapped_column(Integer)
     kcp: Mapped[int] = mapped_column(Integer) # КЦП, кол-во бюджетных мест
     enrolled: Mapped[int] = mapped_column(Integer) # кол-во зачисленных
+
+    # добавляем показатели для расчета востребованности
+    paid_share: Mapped[float | None] = mapped_column(Float, nullable=True) # доля платников (в процентах)
+    competition_rate: Mapped[float | None] = mapped_column(Float, nullable=True) # кол-во человек на место
+    target_achieved: Mapped[float | None] = mapped_column(Float, nullable=True) # процент выполнения плана по набору
     
     specialty: Mapped["Specialty"] = relationship(back_populates="application_stats")
 

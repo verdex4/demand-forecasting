@@ -1,17 +1,18 @@
 import pandas as pd
 from app.models import Subject, ExamSet, Specialty, ApplicationStats, BirthRate, ExamStats, ExamSetItem, SpecialtyExamSet
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Tuple
 
 # СЛОВАРИ ВИДА "НАЗВАНИЕ: ОБЪЕКТ" (для быстрого доступа к объектам)
 specialties = {} # name: Specialty
 subjects = {} # name: Subject
 exam_sets = {} # name: ExamSet
-# возможные комплекты для каждого направления
 spec_sets = {} # specialty_name: [ExamSet]
+applications = {} # (specialty_name, year): ApplicationStats
 
-async def seed_from_excel(session: AsyncSession) -> None:
-    """Заполняет базу данных из Excel-файлов в папке data."""
-    # специальности
+def _get_dfs() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Возвращает кортеж датафреймов."""
+     # специальности
     df_spec = pd.read_excel('data/application_stats.xlsx', sheet_name='Направления', dtype=str)
 
     # заявления (а также предметы и комплекты)
@@ -25,14 +26,42 @@ async def seed_from_excel(session: AsyncSession) -> None:
     # статистика по экзаменам (данные взяты из документа Word)
     df_exams = pd.read_excel('data/exam_stats.xlsx')
 
-    # заполняем
+    return df_spec, df_apps, df_births, df_exams
+
+async def seed(session: AsyncSession) -> None:
+    """Заполняет базу данных (Excel + показатели)."""
+    df_spec, df_apps, df_births, df_exams = _get_dfs()
+
+    # заполняем из Excel-файлов
     await _fill_specialties(df_spec, session)
     await _fill_subjects_sets_apps(df_apps, session)
     await _fill_births(df_births, session)
     await _fill_exams(df_exams, session)
 
-    await session.commit()
+    # добавляем показатели
+    await add_indicators(df_apps, session)
 
+
+async def add_indicators(df_apps, session: AsyncSession) -> None:
+    """Добавляет в базу данных показатели для прогноза востребованности."""
+    for stats in applications.values():
+        # доля контрактников
+        # если количество зачисленных 0, то мы не можем определить долю контрактников
+        if stats.enrolled == 0: stats.paid_share = None
+        elif stats.enrolled < stats.kcp: stats.paid_share = 0
+        else: stats.paid_share = round((stats.enrolled - stats.kcp) / stats.enrolled * 100, 1)
+
+        # конкурс (кол-во человек на место)
+        # если бюджетных мест нет, то мы не можем определить конкурс
+        if stats.kcp == 0: stats.competition_rate = None
+        else: stats.competition_rate = round(stats.applications / stats.kcp, 1)
+
+        # выполняемость плана
+        # если бюджетных мест нет, то мы не можем определить выполняемость
+        if stats.kcp == 0: stats.target_achieved = None
+        else: stats.target_achieved = round(stats.enrolled / stats.kcp * 100, 1)
+    
+        await session.commit()
 
 def _transform_columns(df) -> pd.DataFrame:
     """Убирает NaN и Unnamed из заголовков (1 и 2 строки в Excel)."""
@@ -69,7 +98,9 @@ async def _fill_specialties(df, session: AsyncSession):
         spec = Specialty(code=code, name=name)
         specialties[name] = spec
         session.add(spec)
-    await session.flush()
+        await session.flush()
+
+    await session.commit()
 
 async def _fill_subjects_sets_apps(df, session: AsyncSession):
     for _, row in df.iterrows():
@@ -96,7 +127,6 @@ async def _fill_subjects_sets_apps(df, session: AsyncSession):
             set_obj = ExamSet(name=set_name)            
             exam_sets[set_name] = set_obj
             session.add(set_obj)
-
             await session.flush()
 
             for subj in cur_subjects:
@@ -111,6 +141,11 @@ async def _fill_subjects_sets_apps(df, session: AsyncSession):
         for col_idx in range(3, len(df.columns), 3):
             # год - первое значение в заголовке
             year = int(df.columns[col_idx][0])
+
+            # избегаем дубликатов
+            if (spec_name, year) in applications:
+                continue
+
             # считываем значения столбцов (КЦП, кол-во заявок, кол-во зачисленных)
             # пропускаем незаполненные ячейки
             if (pd.isna(row[df.columns[col_idx]])
@@ -126,9 +161,12 @@ async def _fill_subjects_sets_apps(df, session: AsyncSession):
                                      kcp=kcp, 
                                      applications=apps, 
                                      enrolled=enrolled)
+            
+            applications[(spec_name, year)] = stats
             session.add(stats)
+            await session.flush()
     
-    await session.flush()
+    await session.commit()
         
     # ДОБАВЛЯЕМ СВЯЗИ "НАПРАВЛЕНИЕ - КОМПЛЕКТ ЕГЭ"
     for name in spec_sets:
@@ -136,8 +174,9 @@ async def _fill_subjects_sets_apps(df, session: AsyncSession):
         for exam_set in spec_sets[name]:
             association_spec_set = SpecialtyExamSet(specialty_id=spec.id, set_id=exam_set.id)
             session.add(association_spec_set)
+            await session.flush()
     
-    await session.flush()
+    await session.commit()
 
 async def _fill_births(df, session: AsyncSession):
     for _, row in df.iterrows():
@@ -145,8 +184,9 @@ async def _fill_births(df, session: AsyncSession):
         births = int(row['Количество рожденных'])
         birth_stats = BirthRate(year=year, births=births)
         session.add(birth_stats)
+        await session.flush()
 
-    await session.flush()
+    await session.commit()
 
 async def _fill_exams(df, session: AsyncSession):
     for _, row in df.iterrows():
@@ -157,5 +197,6 @@ async def _fill_exams(df, session: AsyncSession):
             participants = row[year]
             stats = ExamStats(subject=subject, year=int(year), participants=int(participants))
             session.add(stats)
+            await session.flush()
 
-    await session.flush()
+    await session.commit()
