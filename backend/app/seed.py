@@ -1,7 +1,7 @@
 import pandas as pd
 from app.models import Subject, ExamSet, Specialty, ApplicationStats, BirthRate, ExamStats, ExamSetItem, SpecialtyExamSet
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Tuple
+from typing import Tuple, List
 
 # СЛОВАРИ ВИДА "НАЗВАНИЕ: ОБЪЕКТ" (для быстрого доступа к объектам)
 specialties = {} # name: Specialty
@@ -37,31 +37,6 @@ async def seed(session: AsyncSession) -> None:
     await _fill_subjects_sets_apps(df_apps, session)
     await _fill_births(df_births, session)
     await _fill_exams(df_exams, session)
-
-    # добавляем показатели
-    await add_indicators(df_apps, session)
-
-
-async def add_indicators(df_apps, session: AsyncSession) -> None:
-    """Добавляет в базу данных показатели для прогноза востребованности."""
-    for stats in applications.values():
-        # доля контрактников
-        # если количество зачисленных 0, то мы не можем определить долю контрактников
-        if stats.enrolled == 0: stats.paid_share = None
-        elif stats.enrolled < stats.kcp: stats.paid_share = 0
-        else: stats.paid_share = round((stats.enrolled - stats.kcp) / stats.enrolled * 100, 1)
-
-        # конкурс (кол-во человек на место)
-        # если бюджетных мест нет, то мы не можем определить конкурс
-        if stats.kcp == 0: stats.competition_rate = None
-        else: stats.competition_rate = round(stats.applications / stats.kcp, 1)
-
-        # выполняемость плана
-        # если бюджетных мест нет, то мы не можем определить выполняемость
-        if stats.kcp == 0: stats.target_achieved = None
-        else: stats.target_achieved = round(stats.enrolled / stats.kcp * 100, 1)
-    
-        await session.commit()
 
 def _transform_columns(df) -> pd.DataFrame:
     """Убирает NaN и Unnamed из заголовков (1 и 2 строки в Excel)."""
@@ -103,72 +78,16 @@ async def _fill_specialties(df, session: AsyncSession):
     await session.commit()
 
 async def _fill_subjects_sets_apps(df, session: AsyncSession):
+    """Заполняет предметы, комплекты ЕГЭ и статистику по заявлениям."""
     for _, row in df.iterrows():
-        # ДОБАВЛЯЕМ ПРЕДМЕТЫ
-        subjects_raw = row[df.columns[1]]
-        # список названий в виде строк
-        subject_names = [s.strip() for s in str(subjects_raw).split('\n') if s.strip()]
-        # список объектов предметов
-        cur_subjects = []
-        for name in subject_names:
-            if name not in subjects:
-                subj = Subject(name=name)
-                subjects[name] = subj
-                session.add(subj)
-            cur_subjects.append(subjects[name])
-
-        # ДОБАВЛЯЕМ КОМПЛЕКТЫ
-        # название комплекта в виде строки
-        set_name = ", ".join(subject_names)
-        # название направления
-        spec_name = str(row[df.columns[2]]).strip()
-
-        if set_name not in exam_sets:
-            set_obj = ExamSet(name=set_name)            
-            exam_sets[set_name] = set_obj
-            session.add(set_obj)
-            await session.flush()
-
-            for subj in cur_subjects:
-                association_item = ExamSetItem(set_id=set_obj.id, subject_id=subj.id)
-                session.add(association_item)
+        # добавляем предметы
+        subject_names, cur_subjects = await __fill_subjects(df, row, session)
+        # добавляем комплекты
+        spec_name = await __fill_exam_sets(df, row, subject_names, cur_subjects, session)
+        # добавляем статистику по заявлениям
+        await __fill_apps(df, row, spec_name, session)
         
-        # добавляем комплект к направлению
-        spec_sets.setdefault(spec_name, []).append(exam_sets[set_name])
-        
-        # ДОБАВЛЯЕМ СТАТИСТИКУ ПО ЗАЯВЛЕНИЯМ
-        # собираем статистику по годам (на каждый год 3 столбца)
-        for col_idx in range(3, len(df.columns), 3):
-            # год - первое значение в заголовке
-            year = int(df.columns[col_idx][0])
-
-            # избегаем дубликатов
-            if (spec_name, year) in applications:
-                continue
-
-            # считываем значения столбцов (КЦП, кол-во заявок, кол-во зачисленных)
-            # пропускаем незаполненные ячейки
-            if (pd.isna(row[df.columns[col_idx]])
-                or pd.isna(row[df.columns[col_idx + 1]])
-                or pd.isna(row[df.columns[col_idx + 2]])):
-                continue
-            kcp = int(row[df.columns[col_idx]])
-            apps = int(row[df.columns[col_idx + 1]])
-            enrolled = int(row[df.columns[col_idx + 2]])
-            
-            stats = ApplicationStats(specialty=specialties[spec_name], 
-                                     year=year, 
-                                     kcp=kcp, 
-                                     applications=apps, 
-                                     enrolled=enrolled)
-            
-            applications[(spec_name, year)] = stats
-            session.add(stats)
-            await session.flush()
-    
-    await session.commit()
-        
-    # ДОБАВЛЯЕМ СВЯЗИ "НАПРАВЛЕНИЕ - КОМПЛЕКТ ЕГЭ"
+    # добавляем связи "Направление - Комплект ЕГЭ"
     for name in spec_sets:
         spec = specialties[name]
         for exam_set in spec_sets[name]:
@@ -177,6 +96,102 @@ async def _fill_subjects_sets_apps(df, session: AsyncSession):
             await session.flush()
     
     await session.commit()
+
+async def __fill_subjects(df, row, session: AsyncSession) -> Tuple[List[str], List[Subject]]:
+    """Заполняет базу данных предметами и возвращает вспомогательные данные."""
+    subjects_raw = row[df.columns[1]]
+
+    # список названий в виде строк
+    subject_names = [s.strip() for s in str(subjects_raw).split('\n') if s.strip()]
+
+    # список объектов предметов
+    cur_subjects = []
+
+    for name in subject_names:
+        if name not in subjects:
+            subj = Subject(name=name)
+            subjects[name] = subj
+            session.add(subj)
+            await session.flush()
+        cur_subjects.append(subjects[name])
+    
+    return subject_names, cur_subjects
+
+async def __fill_exam_sets(df, row, subject_names, cur_subjects, session: AsyncSession) -> str:
+    """Заполняет комплекты ЕГЭ, связи между комплектами и предметами и возвращает название направления."""
+    # название комплекта в виде строки
+    set_name = ", ".join(subject_names)
+    # название направления
+    spec_name = str(row[df.columns[2]]).strip()
+
+    if set_name not in exam_sets:
+        set_obj = ExamSet(name=set_name)            
+        exam_sets[set_name] = set_obj
+        session.add(set_obj)
+        await session.flush()
+
+        for subj in cur_subjects:
+            association_item = ExamSetItem(set_id=set_obj.id, subject_id=subj.id)
+            session.add(association_item)
+    
+    # добавляем комплект к направлению
+    spec_sets.setdefault(spec_name, []).append(exam_sets[set_name])
+
+    return spec_name
+
+async def __fill_apps(df, row, spec_name, session: AsyncSession):
+    """Заполняет статистику по заявлениям."""
+    # собираем статистику по годам (на каждый год 3 столбца)
+    for col_idx in range(3, len(df.columns), 3):
+        # год - первое значение в заголовке
+        year = int(df.columns[col_idx][0])
+
+        # избегаем дубликатов
+        if (spec_name, year) in applications:
+            continue
+
+        # пропускаем незаполненные ячейки
+        if (pd.isna(row[df.columns[col_idx]])
+            or pd.isna(row[df.columns[col_idx + 1]])
+            or pd.isna(row[df.columns[col_idx + 2]])):
+            continue
+
+        # считываем значения столбцов (КЦП, кол-во заявок, кол-во зачисленных)
+        kcp = int(row[df.columns[col_idx]])
+        apps = int(row[df.columns[col_idx + 1]])
+        enrolled = int(row[df.columns[col_idx + 2]])
+
+        # вычисляем показатели востребованности
+        paid_share = None # доля контрактников
+        competition_rate = None # конкурс (кол-во человек на место)
+        target_achieved = None # выполняемость плана
+
+        # если количество зачисленных 0, то мы не можем определить долю контрактников
+        if enrolled != 0 and enrolled < kcp:
+            paid_share = 0
+        elif enrolled != 0:
+            paid_share = round((enrolled - kcp) / enrolled * 100, 1)
+        
+        # если бюджетных мест нет, то мы не можем определить конкурс
+        if kcp != 0:
+            competition_rate = round(apps / kcp, 1)
+        
+        # если бюджетных мест нет, то мы не можем определить выполняемость
+        if kcp != 0:
+            target_achieved = round(enrolled / kcp * 100, 1)
+        
+        stats = ApplicationStats(specialty=specialties[spec_name], 
+                                 year=year, 
+                                 kcp=kcp, 
+                                 applications=apps, 
+                                 enrolled=enrolled,
+                                 paid_share=paid_share,
+                                 competition_rate=competition_rate,
+                                 target_achieved=target_achieved)
+        
+        applications[(spec_name, year)] = stats
+        session.add(stats)
+        await session.flush()
 
 async def _fill_births(df, session: AsyncSession):
     for _, row in df.iterrows():
