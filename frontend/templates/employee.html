@@ -26,10 +26,16 @@
                 <i class="icon">📃</i> Специальности
             </li>
             <li class="nav-item">
-                <i class="icon">📈</i> Статистика ЕГЭ
+                <i class="icon">📈</i> Статистика заявлений
             </li>
-            <li class="nav-item special active"> <!-- Активный пункт как на скрине -->
+            <li class="nav-item">
                 <i class="icon">📚</i> Отчёты
+            </li>
+            <li class="nav-item">
+                <i class="icon">🛠️</i> Настройка модели
+            </li>
+            <li class="nav-item">
+                <i class="icon">🧪</i> Тест модели
             </li>
         </ul>
     </aside>
@@ -40,26 +46,19 @@
         <!-- Верхняя шапка -->
         <header class="page-header">
             <h1 class="page-title">Прогноз востребованности специальностей</h1>
-            <div class="header-actions">
-                <button class="btn btn-secondary">
-                    <i class="icon">⚙️</i> Настройки
-                </button>
-                <button class="btn btn-primary">
-                    <i class="icon">️</i> Экспорт данных
-                </button>
-            </div>
         </header>
 
-        <!-- Блок фильтров -->
-        <section class="card">
-            <div class="card-header">Параметры прогноза</div>
+        <!-- Раздел "Прогнозирование" -->
+        <section class="forecast" id="section-forecast">
+            <div class="forecast-header">Параметры прогноза</div>
             
             <div class="filters-grid">
                 <!-- Направление подготовки -->
-                <div class="form-group">
+                <div class="form-group" id="speciality-select">
                     <label class="form-label required">Направление подготовки</label>
                     <select class="form-control">
                         <option value="all">Все специальности</option>
+                        <!-- Здесь должны добавиться значения при запросе через API -->
                     </select>
                 </div>
 
@@ -106,14 +105,47 @@
 
             <div class="actions-row">
                 <button class="btn btn-primary btn-lg" id="btnGenerate">
-                    <i class="icon"></i> Сформировать отчёт
+                    Сформировать отчёт
                 </button>
                 <button class="btn btn-secondary btn-lg" id="btnReset">
-                    <i class="icon">🔄</i> Сбросить фильтры
+                    Сбросить фильтры
+                </button>
+                <button class="btn btn-secondary btn-lg">
+                    Настройки отчёта
                 </button>
             </div>
         </section>
 
+        <!-- Раздел "Специальности" -->
+        <section class="specialties" id="section-specialties">
+            <div class="specialties-header">Специальности</div>
+            <p>Здесь будут отображаться специальности</p>
+        </section>
+
+        <!-- Раздел "Статистика заявлений" -->
+        <section class="applications" id="section-applications">
+            <div class="applications-header">Статистика заявлений</div>
+            <p>Здесь будут отображаться статистика заявлений</p>
+        </section>
+
+        <!-- Раздел "Отчёты" -->
+        <section class="reports" id="section-reports">
+            <div class="reports-header">Отчёты</div>
+            <p>Здесь будут отображаться отчёты</p>
+        </section>
+
+        <!-- Раздел "Настройка модели" -->
+        <section class="model-settings" id="section-model-settings">
+            <div class="model-settings-header">Настройка модели</div>
+            <p>Здесь будут отображаться настройки модели</p>
+        </section>
+        
+        <!-- Раздел "Тест модели"-->
+        <section class="model-test" id="section-model-test">
+            <div class="model-test-header">Тест модели</div>
+            <p>Здесь будут отображаться результаты тестирования модели</p>
+        </section>
+    
     </main>
 
     <script src="static/js/employee.js"></script>
