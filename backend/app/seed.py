@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from app.models import Subject, ExamSet, Specialty, ApplicationStats, BirthRate, ExamStats, ExamSetItem, SpecialtyExamSet
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Tuple, List
@@ -150,44 +151,16 @@ async def __fill_apps(df, row, spec_name, session: AsyncSession):
         if (spec_name, year) in applications:
             continue
 
-        # пропускаем незаполненные ячейки
-        if (pd.isna(row[df.columns[col_idx]])
-            or pd.isna(row[df.columns[col_idx + 1]])
-            or pd.isna(row[df.columns[col_idx + 2]])):
-            continue
-
-        # считываем значения столбцов (КЦП, кол-во заявок, кол-во зачисленных)
-        kcp = int(row[df.columns[col_idx]])
-        apps = int(row[df.columns[col_idx + 1]])
-        enrolled = int(row[df.columns[col_idx + 2]])
-
-        # вычисляем показатели востребованности
-        paid_share = None # доля контрактников
-        competition_rate = None # конкурс (кол-во человек на место)
-        target_achieved = None # выполняемость плана
-
-        # если количество зачисленных 0, то мы не можем определить долю контрактников
-        if enrolled != 0 and enrolled < kcp:
-            paid_share = 0
-        elif enrolled != 0:
-            paid_share = round((enrolled - kcp) / enrolled * 100, 1)
+        # считываем значения столбцов (кол-во заявок, КЦП, кол-во зачисленных)
+        apps = None if pd.isna(row[df.columns[col_idx + 1]]) else row[df.columns[col_idx + 1]]
+        kcp = None if pd.isna(row[df.columns[col_idx]]) else row[df.columns[col_idx]]
+        enrolled = None if pd.isna(row[df.columns[col_idx + 2]]) else row[df.columns[col_idx + 2]]
         
-        # если бюджетных мест нет, то мы не можем определить конкурс
-        if kcp != 0:
-            competition_rate = round(apps / kcp, 1)
-        
-        # если бюджетных мест нет, то мы не можем определить выполняемость
-        if kcp != 0:
-            target_achieved = round(enrolled / kcp * 100, 1)
-        
-        stats = ApplicationStats(specialty=specialties[spec_name], 
-                                 year=year, 
-                                 kcp=kcp, 
-                                 applications=apps, 
-                                 enrolled=enrolled,
-                                 paid_share=paid_share,
-                                 competition_rate=competition_rate,
-                                 target_achieved=target_achieved)
+        stats = ApplicationStats(specialty=specialties[spec_name],
+                                 year=year,
+                                 applications=apps,
+                                 kcp=kcp,
+                                 enrolled=enrolled)
         
         applications[(spec_name, year)] = stats
         session.add(stats)

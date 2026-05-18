@@ -67,14 +67,9 @@ class ApplicationStats(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     specialty_id: Mapped[int] = mapped_column(ForeignKey("specialties.id"))
     year: Mapped[int] = mapped_column(Integer)
-    applications: Mapped[int] = mapped_column(Integer)
-    kcp: Mapped[int] = mapped_column(Integer) # КЦП, кол-во бюджетных мест
-    enrolled: Mapped[int] = mapped_column(Integer) # кол-во зачисленных
-
-    # добавляем показатели для расчета востребованности
-    paid_share: Mapped[float | None] = mapped_column(Float, nullable=True) # доля платников (в процентах)
-    competition_rate: Mapped[float | None] = mapped_column(Float, nullable=True) # кол-во человек на место
-    target_achieved: Mapped[float | None] = mapped_column(Float, nullable=True) # процент выполнения плана по набору
+    applications: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    kcp: Mapped[int | None] = mapped_column(Integer, nullable=True) # КЦП, кол-во бюджетных мест
+    enrolled: Mapped[int | None] = mapped_column(Integer, nullable=True) # кол-во зачисленных
     
     specialty: Mapped["Specialty"] = relationship(back_populates="application_stats")
 
