@@ -5,3 +5,5 @@ pandas
 openpyxl
 pydantic
 asyncpg
+scipy
+matplotlib
