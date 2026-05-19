@@ -1,11 +1,10 @@
 import asyncio
 import pandas as pd
 import numpy as np
-from sqlalchemy import text
-from app.database import engine
-from typing import Dict, Tuple, List
+from app.database import fetch_query_to_df
+from typing import Dict, Tuple, List, Union
 
-async def make_forecast(specialties_names: List[str],
+async def make_forecast(specialties_names: Union[List[str], str],
                         method: str,
                         history_range: Tuple[int, int],
                         forecast_range: Tuple[int, int],
@@ -16,7 +15,7 @@ async def make_forecast(specialties_names: List[str],
     * SMA_x - скользящее среднее за x лет
 
     Args:
-        specialties_names (str): Названия специальностей
+        specialties_names (Union[List[str], str]): Названия специальностей или "all"
         method (str): Метод прогнозирования
         history_range (Tuple[int, int]): Диапазон исторических данных
         forecast_range (Tuple[int, int]): Диапазон прогнозирования
@@ -26,6 +25,12 @@ async def make_forecast(specialties_names: List[str],
         pd.DataFrame: Датафрейм с прогнозными данными
     """
     # получаем данные
+    if specialties_names == "all":
+        spec_df = await fetch_query_to_df(
+            "SELECT name FROM public.specialties"
+        )
+        specialties_names = spec_df["name"].tolist()
+       
     query = """
         SELECT a.*
         FROM public.application_stats AS a
@@ -34,14 +39,12 @@ async def make_forecast(specialties_names: List[str],
         AND s.name = ANY(:specialties_names)
         ORDER BY a.specialty_id, a.year ASC;
     """
-    df = await _fetch_query_to_df(
-        engine, 
+    df = await fetch_query_to_df(
         query,
         params={"start_year": history_range[0], 
                 "end_year": history_range[1],
                 "specialties_names": specialties_names}
     )
-    await engine.dispose()
 
     df = df.dropna() # убираем строки хотя бы с одним пропуском
 
@@ -64,17 +67,10 @@ async def make_forecast(specialties_names: List[str],
 
     cols = ["specialty_id", "year", "applications", "kcp", "enrolled", "D1", "D2", "D3", "D4", "D"]
     df = df[cols].sort_values(["specialty_id", "year"])
-    print(df)
 
     return df
 
-async def _fetch_query_to_df(async_engine, query_str, params=None):
-    async with async_engine.connect() as conn:
-        result = await conn.execute(text(query_str), params or {})
-        rows = result.fetchall()
-        columns = result.keys()
-        df = pd.DataFrame(rows, columns=columns)
-    return df
+
 
 def _calc_demand(df: pd.DataFrame, weights: Dict[str, float] | None = None) -> pd.DataFrame:
     """Считает показатели востребованности специальности.
