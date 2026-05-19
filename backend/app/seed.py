@@ -14,18 +14,18 @@ applications = {} # (specialty_name, year): ApplicationStats
 def _get_dfs() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Возвращает кортеж датафреймов."""
      # специальности
-    df_spec = pd.read_excel('data/application_stats.xlsx', sheet_name='Направления', dtype=str)
+    df_spec = pd.read_excel('data/excel/application_stats.xlsx', sheet_name='Направления', dtype=str)
 
     # заявления (а также предметы и комплекты)
-    df_apps = pd.read_excel('data/application_stats.xlsx', sheet_name='Заявления', header=[0, 1])
+    df_apps = pd.read_excel('data/excel/application_stats.xlsx', sheet_name='Заявления', header=[0, 1])
     df_apps = _transform_columns(df_apps)
     df_apps = _transform_rows(df_apps)
 
     # рождаемость (взято из https://rosstat.gov.ru/bgd/regl/B21_16/Main.htm)
-    df_births = pd.read_excel('data/birth_stats.xlsx')
+    df_births = pd.read_excel('data/excel/birth_stats.xlsx')
 
     # статистика по экзаменам (данные взяты из документа Word)
-    df_exams = pd.read_excel('data/exam_stats.xlsx')
+    df_exams = pd.read_excel('data/excel/exam_stats.xlsx')
 
     return df_spec, df_apps, df_births, df_exams
 
