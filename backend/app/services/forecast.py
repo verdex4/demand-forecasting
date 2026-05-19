@@ -3,20 +3,83 @@ import pandas as pd
 import numpy as np
 from sqlalchemy import text
 from app.database import engine
-from typing import Dict
+from typing import Dict, Tuple, List
 
-async def fetch_query_to_df(async_engine, query_str):
+async def make_forecast(specialties_names: List[str],
+                        method: str,
+                        history_range: Tuple[int, int],
+                        forecast_range: Tuple[int, int],
+                        weights: dict[str, float] | None = None) -> pd.DataFrame:
+    """Прогнозирует востребованность специальностей с помощью указанного метода.
+
+    Доступные методы:
+    * SMA_x - скользящее среднее за x лет
+
+    Args:
+        specialties_names (str): Названия специальностей
+        method (str): Метод прогнозирования
+        history_range (Tuple[int, int]): Диапазон исторических данных
+        forecast_range (Tuple[int, int]): Диапазон прогнозирования
+        weights (Dict[str, float] | None): Веса модели
+
+    Returns:
+        pd.DataFrame: Датафрейм с прогнозными данными
+    """
+    # получаем данные
+    query = """
+        SELECT a.*
+        FROM public.application_stats AS a
+        JOIN public.specialties AS s ON a.specialty_id = s.id
+        WHERE a.year BETWEEN :start_year AND :end_year
+        AND s.name = ANY(:specialties_names)
+        ORDER BY a.specialty_id, a.year ASC;
+    """
+    df = await _fetch_query_to_df(
+        engine, 
+        query,
+        params={"start_year": history_range[0], 
+                "end_year": history_range[1],
+                "specialties_names": specialties_names}
+    )
+    await engine.dispose()
+
+    df = df.dropna() # убираем строки хотя бы с одним пропуском
+
+    # выбираем нужную функцию для прогнозирования
+    method = method.lower()
+    params = {}
+    _forecast_func = None
+    if method.startswith("sma_"):
+        params["sma_window"] = int(method[4:])
+        _forecast_func = _forecast_sma
+
+    if _forecast_func is None:
+        raise ValueError(f"Метода прогнозирования {method} не существует, смотри доступные методы в описании к функции.")
+
+    # прогнозируем ключевые показатели: кол-во заявлений, КЦП, кол-во зачисленных
+    df = _forecast_func(df, forecast_range, **params)
+
+    # считаем показатели востребованности
+    df = _calc_demand(df, weights)
+
+    cols = ["specialty_id", "year", "applications", "kcp", "enrolled", "D1", "D2", "D3", "D4", "D"]
+    df = df[cols].sort_values(["specialty_id", "year"])
+    print(df)
+
+    return df
+
+async def _fetch_query_to_df(async_engine, query_str, params=None):
     async with async_engine.connect() as conn:
-        result = await conn.execute(text(query_str))
+        result = await conn.execute(text(query_str), params or {})
         rows = result.fetchall()
         columns = result.keys()
         df = pd.DataFrame(rows, columns=columns)
     return df
 
-def history_demand(df: pd.DataFrame, weights: Dict[str, float] | None) -> pd.DataFrame:
-    """Считает востребованность специальности по историческим данным.
+def _calc_demand(df: pd.DataFrame, weights: Dict[str, float] | None = None) -> pd.DataFrame:
+    """Считает показатели востребованности специальности.
 
-    D_final = (w1 * X1 + w2 * X2 + w3 * X3 + w4 * X4) * exp(w5 * X5), где
+    D = (w1 * X1 + w2 * X2 + w3 * X3 + w4 * X4) * exp(w5 * X5), где
     * X1 - коммерческий интерес
     * X2 - показатель заявлений (доля рынка + рост)
     * X3 - показатель конкурса (доля рынка + рост)
@@ -40,13 +103,10 @@ def history_demand(df: pd.DataFrame, weights: Dict[str, float] | None) -> pd.Dat
         coeffs (dict): Коэффициенты прогноза. Пример: {"k1": 0.25, "k2": 0.4, "k3": 0.25, "k4": 0.1, "k5": -10, "k6": -2}.
 
     Returns:
-        pd.Series: Вектор с прогнозами для каждого объекта (специальности)
+        pd.DataFrame: Датафрейм с показателями востребованности.
     """
     if weights is None:
         weights = {"w1": 0.25, "w2": 0.25, "w3": 0.4, "w4": 0.1, "w5": -10}
-
-    # сортируем для дальнейшей группировки
-    df = df.sort_values(by=["specialty_id", "year"]).reset_index(drop=True)
 
     # ДОБАВЛЯЕМ D1 - коммерческий интерес
     # если зачисленных нет или их меньше, чем КЦП, то D1 = 0, иначе считаем по формуле
@@ -63,7 +123,7 @@ def history_demand(df: pd.DataFrame, weights: Dict[str, float] | None) -> pd.Dat
     df["apps_growth"] = _smape_normalized_diff(df, "applications")
 
     # считаем D2 как взвешенную сумму x1, x2 и синергии x1, x2 (если x1, x2 высокие, то D2 высокий)
-    df["D2"] = 0.2 * df["apps_diff"] + 0.2 * df["apps_growth"] + 0.4 * df["apps_diff"] * df["apps_growth"]
+    df["D2"] = 0.3 * df["apps_diff"] + 0.3 * df["apps_growth"] + 0.4 * df["apps_diff"] * df["apps_growth"]
 
     # ДОБАВЛЯЕМ D3 - конкурс (количество человек на место)
     # считаем кол-во человек на место
@@ -115,17 +175,14 @@ def history_demand(df: pd.DataFrame, weights: Dict[str, float] | None) -> pd.Dat
                         choices,
                         default=np.exp(weights["w5"] * (df["kcp"] - df["enrolled"]) / df["kcp"]))
 
-    # СЧИТАЕМ ГОДОВОЙ ПОКАЗАТЕЛЬ D_year
-    df["D_year"] = (weights["w1"] * df["D1"] + 
+    # СЧИТАЕМ ГОДОВОЙ ПОКАЗАТЕЛЬ D
+    df["D"] = (weights["w1"] * df["D1"] + 
                     weights["w2"] * df["D2"] + 
                     weights["w3"] * df["D3"] + 
                     weights["w4"] * df["D4"] *
                     df["P"])
 
-    # СЧИТАЕМ ИТОГОВЫЙ ПОКАЗАТЕЛЬ D ДЛЯ ВСЕХ СПЕЦИАЛЬНОСТЕЙ
-    demand = df.groupby("specialty_id")["D_year"].mean().reset_index(name='D')
-
-    return demand
+    return df
 
 def _smape_normalized_diff(df, col: str, k=-2) -> np.ndarray:
     """Вычисление нормализованного изменения роста по sMAPE от 0 до 1.
@@ -211,15 +268,21 @@ def _normalize_diff(x: pd.Series, mean, k=2) -> np.ndarray:
                     0, 
                     x**k / (x**k + mean**k))
 
-async def main(weights=None):
-    df = await fetch_query_to_df(engine, "SELECT * FROM application_stats")
-    df = df.dropna()
+def _forecast_sma(df: pd.DataFrame, forecast_range: Tuple[int, int], sma_window: int) -> pd.DataFrame:
+    """Прогнозирует ключевые показатели с помощью взятия среднего из истории."""
+    if df[df["year"] == forecast_range[0] - sma_window].empty:
+        raise IndexError(f"Введено слишком большое значение sma_window.")
+    
+    indicators = ["applications", "kcp", "enrolled"]
 
-    demand = history_demand(df, weights)
-    print(demand)
+    for year in range(forecast_range[0], forecast_range[1] + 1):
+        window_data = df[df["year"].between(year - sma_window, year - 1)]
+        cur_forecast = window_data.groupby("specialty_id", as_index=False)[indicators].mean()
+        cur_forecast[indicators] = np.ceil(cur_forecast[indicators]).astype(int)
+        cur_forecast["year"] = year
+        df = pd.concat([df, cur_forecast], ignore_index=True)
 
-    await engine.dispose()
-
+    return df
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(make_forecast(["Астрономия", "Прикладная информатика"], "sma_3", (2019, 2023), (2024, 2026)))
