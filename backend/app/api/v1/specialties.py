@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models import Specialty, ExamSet
 from app.schemas import SpecialtyShortOut, SpecialtyOut
 
-router = APIRouter(prefix="/specialties", tags=["specialties"])
+router = APIRouter(prefix="/api/v1/specialties", tags=["specialties"])
 
 @router.get("/short", response_model=List[SpecialtyShortOut])
 async def get_all_specialties_short(db: AsyncSession = Depends(get_db)):

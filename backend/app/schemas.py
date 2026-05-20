@@ -1,5 +1,5 @@
-from pydantic import BaseModel, ConfigDict
-from typing import List, Optional
+from pydantic import BaseModel, ConfigDict, HttpUrl
+from typing import List, Optional, Tuple
 
 
 # 1. СХЕМЫ ДЛЯ ПРЕДМЕТОВ (Subjects)
@@ -119,3 +119,12 @@ class SpecialtyUpdate(BaseModel):
     name: Optional[str] = None
     exam_set_ids: Optional[List[int]] = None
 
+# СХЕМЫ ДЛЯ ОТЧЁТОВ
+class ReportCreate(BaseModel):
+    input_specialty: str
+    history_range: Tuple[int, int]
+    forecast_range: Tuple[int, int]
+
+class ReportOut(BaseModel):
+    success: bool
+    report_url: HttpUrl

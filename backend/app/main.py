@@ -8,7 +8,8 @@ from app.seed import seed
 from app.api.v1 import specialties
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from app.settings import STATIC_DIR, TEMPLATES_DIR
+from app.settings import STATIC_DIR, TEMPLATES_DIR, REPORTS_DIR
+from app.api.v1 import reports
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/reports", StaticFiles(directory=REPORTS_DIR), name="reports")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 @app.get("/")
@@ -48,4 +50,5 @@ async def employee(request: Request):
 async def applicant(request: Request):
     return templates.TemplateResponse(request, "applicant.html")
 
-app.include_router(specialties.router, prefix="/api/v1")
+app.include_router(specialties.router)
+app.include_router(reports.router)

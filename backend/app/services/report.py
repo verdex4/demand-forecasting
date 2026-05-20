@@ -84,11 +84,14 @@ async def make_report(df: pd.DataFrame, input_specialty: str, history_range: Tup
     )
     
     # определяем название и путь файла
-    output_path = f"{BASE_DIR}/backend/data/reports/{_rus_to_eng(specialty_name)}.html"
+    filename = f"{_rus_to_eng(specialty_name)}.html"
+    output_path = f"{BASE_DIR}/backend/data/reports/{filename}"
 
     # сохраняем отчет
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
+    
+    return filename
 
 def _plot_to_base64():
     """Сохраняет matplotlib-график в виде base64-строки."""
