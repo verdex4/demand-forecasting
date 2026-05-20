@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import base64
 import io
@@ -8,60 +9,84 @@ import asyncio
 from app.database import fetch_query_to_df
 from datetime import date
 
-async def make_report(
-        df: pd.DataFrame, 
-        input_specialty: str, 
-        history_range: Tuple[int, int], 
-        forecast_range: Tuple[int, int]
-    ):
+async def make_report(df: pd.DataFrame, input_specialty: str, history_range: Tuple[int, int], forecast_range: Tuple[int, int]):
     """Создаёт HTML-отчёт о востребованности специальности и сохраняет в backend/data/reports."""
     # парсим ввод специальности
     code = input_specialty.split(" ")[0]
     spec_df = await fetch_query_to_df(f"SELECT id, name FROM public.specialties WHERE code = '{code}'")
     specialty_id = spec_df["id"].values[0]
     specialty_name = spec_df["name"].values[0]
+
+    # определяем года истории и прогноза
+    start_year = history_range[0]
+    cur_year = history_range[1]
+    end_year = forecast_range[1]
     
-    df_history = df[(df["year"] >= history_range[0]) & (df["year"] <= history_range[1])]
-    df_cur = df[df["year"] == history_range[1]]
-    df_future = df[(df["year"] >= forecast_range[0]) & (df["year"] <= forecast_range[1])]
-    df_last = df[df["year"] == forecast_range[1]]
+    # находим данные по всем специальностям в текущем году
+    df_cur = df[df["year"] == cur_year]
+
+    # находим указанную специальность
+    df_spec = df[df["specialty_id"] == specialty_id]
+    spec_hist = df_spec[(df_spec["year"] >= start_year) & (df_spec["year"] <= cur_year)]
+    spec_cur = df_spec[df_spec["year"] == cur_year]
+    spec_fut = df_spec[(df_spec["year"] >= cur_year + 1) & (df_spec["year"] <= end_year)]
+    spec_last = df_spec[df_spec["year"] == end_year]
+    spec_cur_fut = pd.concat([spec_cur, spec_fut], ignore_index=True) # текущий год + прогноз
 
     # определяем текущий и прогнозируемый уровень востребованности
-    cur_demand = _define_demand_level(df_cur, specialty_id)
-    future_demand = _define_demand_level(df_last, specialty_id)
+    cur_demand = _define_demand_level(df[df["year"] == cur_year], specialty_id)
+    future_demand = _define_demand_level(df[df["year"] == end_year], specialty_id)
 
     # определяем стабильность прогноза (по истории)
-    stability = _define_stability(df_history, specialty_id)
+    stability = _define_stability(
+        df[(df["year"] >= start_year) & (df["year"] <= cur_year)],
+        specialty_id
+    )
 
-    # отражаем статистику по заявлениям
-    hist = df_history[df_history["specialty_id"] == specialty_id]
-    cur = df_cur[df_cur["specialty_id"] == specialty_id]
-    fut = df_future[df_future["specialty_id"] == specialty_id]
-    cur_fut = pd.concat([cur, fut], ignore_index=True)
+    # строим динамику востребованности
+    _plot_trend(spec_hist, spec_cur_fut, "D", "Год", "Востребованность", "Динамика востребованности")
+    demand_plot = _plot_to_base64()
 
-    # сначала прогнозные, чтобы они были на заднем фоне
-    plt.plot(cur_fut["year"], cur_fut["applications"], label="Прогноз", color="#d62728", marker="o", linestyle="--")
-    plt.plot(hist["year"], hist["applications"], label="Факт", color="#1f77b4", marker="s", markersize=7, linestyle="-")
+    # создаем основную таблицу
+    index=["Доля внебюджетников", "Заявления", "Конкурс", "КЦП"]
+    columns = [f"Текущее значение ({cur_year} год)", "Динамика за год", f"Прогноз ({end_year} год)", "Место в вузе", "Статус тренда"]
+    df_table = pd.DataFrame(index=index, columns=columns)
 
-    plt.xlabel("Год")
-    plt.ylabel("Количество заявлений")
-    plt.title(f"Динамика заявлений")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    apps_plot = _plot_to_base64()
+    # заполняем таблицу
+    for row, ind in zip(index, ["D1", "applications", "competition", "kcp"]):
+        df_table.loc[row, f"Текущее значение ({cur_year} год)"] = spec_cur[ind].values[0]
+        df_table.loc[row, "Динамика за год"] = spec_cur[ind].values[0] - spec_hist[spec_hist["year"] == cur_year - 1][ind].values[0]
+        df_table.loc[row, f"Прогноз ({end_year} год)"] = spec_fut[spec_fut["year"] == end_year][ind].values[0]
+        place = _get_place(df_cur, specialty_id, ind)
+        df_table.loc[row, "Место в вузе"] = f"{place[0]} из {place[1]}"
+        trend = _get_trend(spec_cur[ind].values[0], spec_last[ind].values[0], end_year - cur_year)
+        df_table.loc[row, "Статус тренда"] = f"{trend[0]} ({trend[1]})"
+
+    # форматируем таблицу
+    html_table = _format_html_table(df_table)
+
+    # создаем лепестковую диаграмму
+    _plot_radar(spec_cur, spec_last)
+    radar_plot = _plot_to_base64()
 
     # создаем html-контент
     html_content = _make_html_content(
         specialty_name=specialty_name,
+        start_year=start_year,
+        cur_year=cur_year,
+        end_year=end_year,
         cur_demand=cur_demand,
         future_demand=future_demand,
         stability=stability,
-        apps_plot=apps_plot
+        demand_plot=demand_plot,
+        table=html_table,
+        radar_plot=radar_plot
     )
     
     # определяем название и путь файла
     output_path = f"{BASE_DIR}/backend/data/reports/{_rus_to_eng(specialty_name)}.html"
 
+    # сохраняем отчет
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
 
@@ -73,6 +98,64 @@ def _plot_to_base64():
     plt.close()
     
     return base64.b64encode(buf.read()).decode('utf-8')
+
+def _plot_trend(history: pd.DataFrame, future: pd.DataFrame, indicator: str, xlabel: str, ylabel: str, title: str):
+    # сначала прогнозные, чтобы они были на заднем фоне
+    plt.plot(future["year"], future[indicator], label="Прогноз", color="#d62728", marker="o", linestyle="--")
+    plt.plot(history["year"], history[indicator], label="Факт", color="#1f77b4", marker="s", markersize=7, linestyle="-")
+
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+
+def _plot_radar(spec_cur: pd.DataFrame, spec_last: pd.DataFrame):
+    labels = ["Внебюджетники", "Заявления", "Конкурс", "КЦП"]
+    num_vars = len(labels)
+    angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
+    angles += angles[:1]
+
+    values_1 = [
+        spec_cur["D1"].values[0],
+        spec_cur["D2"].values[0],
+        spec_cur["D3"].values[0],
+        spec_cur["D4"].values[0]
+    ]
+    values_1 += values_1[:1]
+
+    values_2 = [
+        spec_last["D1"].values[0],
+        spec_last["D2"].values[0],
+        spec_last["D3"].values[0],
+        spec_last["D4"].values[0]
+    ]
+    values_2 += values_2[:1]
+    
+    fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
+    # текущие значения
+    ax.plot(angles, values_1, color='#1f77b4', linewidth=2, label='Текущие показатели')
+    ax.fill(angles, values_1, color='#1f77b4', alpha=0.2)
+
+    # ожидаемые значения
+    ax.plot(angles, values_2, color='#ff7f0e', linewidth=2, label='Ожидаемые показатели')
+    ax.fill(angles, values_2, color='#ff7f0e', alpha=0.2)
+
+    ax.set_ylim(0, 1)
+    _, labels_text = ax.set_thetagrids(np.degrees(angles[:-1]), labels)
+
+    labels_text[0].set_position((0, 0))
+    labels_text[0].set_ha('left')
+
+    labels_text[1].set_position((0, 0))
+    labels_text[1].set_va('bottom')
+
+    labels_text[2].set_position((0, 0)) 
+    labels_text[2].set_ha('right')
+
+    labels_text[3].set_position((0, 0)) 
+    labels_text[3].set_va('top') 
+    plt.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
 
 def _rus_to_eng(s: str) -> str:
     d = {
@@ -117,16 +200,69 @@ def _define_stability(df: pd.DataFrame, specialty_id: int) -> Tuple[str, Tuple[i
     spec_df = spec_df.sort_values("std").reset_index(drop=True)
     place = spec_df[spec_df["specialty_id"] == specialty_id].index[0] + 1
     all_places = spec_df.shape[0]
-    place_str = f"{place}/{all_places}"
     place_res = (place, all_places)
 
     if percentile < 0.25:
-        return "Очень высокий", place_res
+        return "Очень высокая", place_res
     if percentile < 0.5:
-        return "Высокий", place_res
+        return "Высокая", place_res
     if percentile < 0.75:
-        return "Средний", place_res
-    return "Низкий", place_res
+        return "Средняя", place_res
+    return "Низкая", place_res
+
+def _get_place(df: pd.DataFrame, specialty_id: int, indicator: str) -> Tuple[int, int]:
+    df = df.copy()
+    df = df.sort_values(indicator, ascending=False).reset_index(drop=True)
+    place = df[df["specialty_id"] == specialty_id].index[0] + 1
+    all_places = df.shape[0]
+    return place, all_places
+
+def _get_trend(cur_val: float, forecast_val: float, years: int) -> Tuple[str, str]:
+    # считаем среднегодовой прирост в %
+    cagr = ((forecast_val / cur_val) ** (1 / years) - 1) * 100
+
+    if cagr < -5:
+        return "Падение", f"{round(cagr, 1)}% г/г"
+    if -5 <= cagr < 0:
+        return "Стабилен", f"{round(cagr, 1)}% г/г"
+    if 0 <= cagr < 5:
+        return "Стабилен", f"+{round(cagr, 1)}% г/г"
+    
+    return "Рост", f"+{round(cagr, 1)}% г/г"
+
+def _format_html_table(df: pd.DataFrame) -> str:
+    for col in range(3):
+        val = float(df.iloc[0, col]) * 100
+        df.iloc[0, col] = f"{val:.1f}%"
+    for col in range(3):
+        df.iloc[1, col] = f"{int(float(df.iloc[1, col]))}"
+    for col in range(3):
+        df.iloc[2, col] = f"{float(df.iloc[2, col]):.1f}"
+    for col in range(3):
+        df.iloc[3, col] = f"{int(float(df.iloc[3, col]))}"
+
+    for row in range(df.shape[0]):
+        if df.iloc[row, 1][0] == "-":
+            df.iloc[row, 1] = f"▼{df.iloc[row, 1]:>8}"
+        else:
+            df.iloc[row, 1] = f"+{df.iloc[row, 1]}"
+            df.iloc[row, 1] = f"▲{df.iloc[row, 1]:>8}"
+
+    html_style = """
+    <style>
+        .centered-table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .centered-table th, .centered-table td {
+            text-align: center !important;
+            vertical-align: middle;
+            padding: 8px;
+        }
+    </style>
+    """
+
+    return html_style + df.to_html(classes='centered-table', justify='center')
 
 def _make_html_content(**params) -> str:
     return f"""
@@ -145,16 +281,37 @@ def _make_html_content(**params) -> str:
     <body>
         <h1>Прогноз: {params["specialty_name"]}</h1>
 
-        <p><strong>Текущий спрос: {params["cur_demand"][0]}</strong> ({params["cur_demand"][1][0]}-е место из {params["cur_demand"][1][1]}).</p>
+        <h3>Диапазон времени</h3>
+        <ul>
+            <li>Исторические данные: {params["start_year"]} - {params["cur_year"]}</li>
+            <li>Прогнозные данные: {params["cur_year"] + 1} - {params["end_year"]}</li>
+        </ul>
 
-        <p><strong>Прогноз спроса: {params["future_demand"][0]}</strong> ({params["future_demand"][1][0]}-е место из {params["future_demand"][1][1]}).</p>
-
-        <p><strong>Надежность прогноза: {params["stability"][0]}</strong> ({params["stability"][1][0]}-е место из {params["stability"][1][1]} по стабильности).</p>
-        
+        <h3>Общие показатели востребованности</h3>
+        <ul>
+            <li>Текущий спрос: <strong>{params["cur_demand"][0]}</strong> ({params["cur_demand"][1][0]}-е место из {params["cur_demand"][1][1]})</li>
+            <li>Прогноз спроса: <strong>{params["future_demand"][0]}</strong> ({params["future_demand"][1][0]}-е место из {params["future_demand"][1][1]})</li>
+            <li>Надежность прогноза: <strong>{params["stability"][0]}</strong> ({params["stability"][1][0]}-е место из {params["stability"][1][1]} по стабильности спроса)</li>
+        </ul>
+        <p style="font-size: 0.8em; color: #666; margin-top: 10px;">
+        Общее количество специальностей может отличаться, т.к. часть данных отсутствует.
+        </p>
+        <p>Ниже приведена динамика изменения общей востребованности:</p>
         <div class="plot-container">
-            <img src="data:image/png;base64,{params["apps_plot"]}" alt="График">
+            <img src="data:image/png;base64,{params["demand_plot"]}" alt="График">
         </div>
-        
+
+        <h3>Основные показатели и прогноз развития</h3>
+        {params["table"]}
+        <p style="font-size: 0.8em; color: #666; margin-top: 10px;">
+        Место в вузе находится среди всех специальностей по указанному показателю (чем выше показатель, тем выше место).
+        </p>
+
+        <h3>Вектор изменения востребованности направления</h3>
+        <p>Вычисленные алгоритмом 4 показателя востребованности формируют общий спрос и имеют значения от 0 до 1. Вклад каждого показателя приведён на лепестковой диаграмме ниже:</p>
+        <div class="plot-container">
+            <img src="data:image/png;base64,{params["radar_plot"]}" alt="График">
+        </div>
         <p><strong>Дата создания:</strong> {date.today().strftime("%d.%m.%Y")}</p>
     </body>
     </html>
@@ -163,7 +320,7 @@ def _make_html_content(**params) -> str:
 async def main():
     from app.services.forecast import make_forecast
     df = await make_forecast("all", "sma_3", (2019, 2023), (2024, 2026))
-    res = await make_report(df, "09.03.03 Прикладная информатика", (2019, 2023), (2024, 2026))
+    res = await make_report(df, "38.03.01 Экономика", (2019, 2023), (2024, 2026))
 
 if __name__ == "__main__":
     asyncio.run(main())

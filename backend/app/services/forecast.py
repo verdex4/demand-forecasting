@@ -59,17 +59,15 @@ async def make_forecast(specialties_names: Union[List[str], str],
     if _forecast_func is None:
         raise ValueError(f"Метода прогнозирования {method} не существует, смотри доступные методы в описании к функции.")
 
-    # прогнозируем ключевые показатели: кол-во заявлений, КЦП, кол-во зачисленных
+    # прогнозируем ключевые показатели: кол-во заявлений, КЦП, кол-во зачисленных, конкурс
     df = _forecast_func(df, forecast_range, **params)
 
     # считаем показатели востребованности
     df = _calc_demand(df, weights)
 
-    cols = ["specialty_id", "year", "applications", "kcp", "enrolled", "D1", "D2", "D3", "D4", "D"]
-    df = df[cols].sort_values(["specialty_id", "year"])
+    df = df.sort_values(["specialty_id", "year"]).reset_index(drop=True)
 
     return df
-
 
 
 def _calc_demand(df: pd.DataFrame, weights: Dict[str, float] | None = None) -> pd.DataFrame:
@@ -104,10 +102,10 @@ def _calc_demand(df: pd.DataFrame, weights: Dict[str, float] | None = None) -> p
     if weights is None:
         weights = {"w1": 0.25, "w2": 0.25, "w3": 0.4, "w4": 0.1, "w5": -10}
 
-    # ДОБАВЛЯЕМ D1 - коммерческий интерес
+    # ДОБАВЛЯЕМ D1 - доля внебюджетников
     # если зачисленных нет или их меньше, чем КЦП, то D1 = 0, иначе считаем по формуле
-    df["D1"] = np.where((df["enrolled"] == 0) | (df["enrolled"] < df["kcp"]), 
-                        0, 
+    df["D1"] = np.where((df["enrolled"] == 0) | (df["enrolled"] < df["kcp"]),
+                        0,
                         (df["enrolled"] - df["kcp"]) / df["enrolled"])
 
     # ДОБАВЛЯЕМ D2 - количество заявлений
@@ -138,9 +136,6 @@ def _calc_demand(df: pd.DataFrame, weights: Dict[str, float] | None = None) -> p
 
     # вес 0.7 для разницы с медианой и 0.3 для роста
     df["D3"] = 0.7 * df["competition_diff"] + 0.3 * df["competition_growth"]
-
-    # удаляем лишнее
-    df.drop(["competition", "competition_growth"], axis=1, inplace=True)
 
     # ДОБАВЛЯЕМ D4 - прирост КЦП по sMAPE
     # вычисляем разницу с медианой
@@ -276,6 +271,11 @@ def _forecast_sma(df: pd.DataFrame, forecast_range: Tuple[int, int], sma_window:
         cur_forecast = window_data.groupby("specialty_id", as_index=False)[indicators].mean()
         cur_forecast[indicators] = np.ceil(cur_forecast[indicators]).astype(int)
         cur_forecast["year"] = year
+        cur_forecast["competition"] = np.where(
+            cur_forecast["kcp"] == 0, # если КЦП = 0, то считаем конкурс по другой формуле, иначе по обычной
+            np.where(cur_forecast["enrolled"] == 0, 0, cur_forecast["applications"] / cur_forecast["enrolled"]), 
+            cur_forecast["applications"] / cur_forecast["kcp"]
+        )
         df = pd.concat([df, cur_forecast], ignore_index=True)
 
     return df
