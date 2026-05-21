@@ -55,18 +55,20 @@ async def make_forecast(specialties_names: Union[List[str], str],
     if method.startswith("sma_"):
         params["sma_window"] = int(method[4:])
         _forecast_func = _forecast_sma
+    if method == "demographic":
+        _forecast_func = _forecast_demographic
 
     if _forecast_func is None:
         raise ValueError(f"Метода прогнозирования {method} не существует, смотри доступные методы в описании к функции.")
 
     # прогнозируем ключевые показатели: кол-во заявлений, КЦП, кол-во зачисленных, конкурс
-    df = _forecast_func(df, forecast_range, **params)
+    df = await _forecast_func(df, forecast_range, **params)
 
     # считаем показатели востребованности
     df = _calc_demand(df, weights)
 
     df = df.sort_values(["specialty_id", "year"]).reset_index(drop=True)
-
+    
     return df
 
 
@@ -259,12 +261,10 @@ def _normalize_diff(x: pd.Series, mean, k=2) -> np.ndarray:
                     0, 
                     x**k / (x**k + mean**k))
 
-def _forecast_sma(df: pd.DataFrame, forecast_range: Tuple[int, int], sma_window: int) -> pd.DataFrame:
+async def _forecast_sma(df: pd.DataFrame, forecast_range: Tuple[int, int], sma_window: int, indicators=["applications", "kcp", "enrolled"]) -> pd.DataFrame:
     """Прогнозирует ключевые показатели с помощью взятия среднего из истории."""
     if df[df["year"] == forecast_range[0] - sma_window].empty:
         raise IndexError(f"Введено слишком большое значение sma_window.")
-    
-    indicators = ["applications", "kcp", "enrolled"]
 
     for year in range(forecast_range[0], forecast_range[1] + 1):
         window_data = df[df["year"].between(year - sma_window, year - 1)]
@@ -280,5 +280,35 @@ def _forecast_sma(df: pd.DataFrame, forecast_range: Tuple[int, int], sma_window:
 
     return df
 
+async def _forecast_demographic(df: pd.DataFrame, forecast_range: Tuple[int, int], indicators=["applications", "kcp", "enrolled"]) -> pd.DataFrame:
+    # считаем, что поступают в возрасте 18 лет
+    start_year = forecast_range[0] - 19 # для сравнения с прошлым годом
+    end_year = forecast_range[1] - 18
+    query = """
+        SELECT b.year, b.births
+        FROM public.birth_rate AS b
+        WHERE b.year BETWEEN :start_year AND :end_year
+        ORDER BY b.year;
+    """
+    df_births = await fetch_query_to_df(
+        query,
+        params={"start_year": start_year, "end_year": end_year}
+    )
+    df_births["births_coeff"] = df_births['births'] / df_births['births'].shift(1)
+    df_births["year"] = df_births["year"] + 18
+
+    new_rows = []
+    current_df = df[df["year"] == forecast_range[0] - 1].copy()
+
+    for next_year in range(forecast_range[0], forecast_range[1] + 1):
+        current_df = current_df.copy()
+        current_df["year"] = next_year
+        current_df[indicators] = (current_df[indicators] * df_births[df_births["year"] == next_year]["births_coeff"].values[0]).astype(int)
+        new_rows.append(current_df)
+
+    result_df = pd.concat([df] + new_rows, ignore_index=True)
+    result_df = result_df.sort_values(["specialty_id", "year"])
+    return result_df
+
 if __name__ == "__main__":
-    asyncio.run(make_forecast(["Астрономия", "Прикладная информатика"], "sma_3", (2019, 2023), (2024, 2026)))
+    asyncio.run(make_forecast(["Экономика"], "demographic", (2019, 2023), (2024, 2026)))

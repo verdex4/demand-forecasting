@@ -11,8 +11,8 @@ router = APIRouter(prefix="/api/v1/reports", tags=["reports"])
 @router.post("/", response_model=ReportOut)
 async def create_report(request: Request, params: ReportCreate, db: AsyncSession = Depends(get_db)):
     try:
-        df = await make_forecast("all", "sma_3", params.history_range, params.forecast_range)
-        filename = await make_report(df, params.input_specialty, params.history_range, params.forecast_range)
+        df = await make_forecast("all", params.method, params.history_range, params.forecast_range)
+        filename = await make_report(df, params.input_specialty, params.history_range, params.forecast_range, params.method)
         report_url = f"{request.base_url}reports/{filename}"
         return {"success": True, "report_url": report_url}
     except Exception as e:

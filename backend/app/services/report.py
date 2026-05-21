@@ -9,8 +9,14 @@ import asyncio
 from app.database import fetch_query_to_df
 from datetime import date
 
-async def make_report(df: pd.DataFrame, input_specialty: str, history_range: Tuple[int, int], forecast_range: Tuple[int, int]):
+async def make_report(df: pd.DataFrame, input_specialty: str, history_range: Tuple[int, int], forecast_range: Tuple[int, int], method: str):
     """Создаёт HTML-отчёт о востребованности специальности и сохраняет в backend/data/reports."""
+    # отображаем метод в читаемом формате
+    if method.startswith("sma_"):
+        method = f"Скользящее среднее за {int(method[4:])} лет"
+    elif method == "demographic":
+        method = "Демографический"
+    
     # парсим ввод специальности
     code = input_specialty.split(" ")[0]
     spec_df = await fetch_query_to_df(f"SELECT id, name FROM public.specialties WHERE code = '{code}'")
@@ -72,6 +78,7 @@ async def make_report(df: pd.DataFrame, input_specialty: str, history_range: Tup
     # создаем html-контент
     html_content = _make_html_content(
         specialty_name=specialty_name,
+        method=method,
         start_year=start_year,
         cur_year=cur_year,
         end_year=end_year,
@@ -284,10 +291,11 @@ def _make_html_content(**params) -> str:
     <body>
         <h1>Прогноз: {params["specialty_name"]}</h1>
 
-        <h3>Диапазон времени</h3>
+        <h3>Взятые данные</h3>
         <ul>
             <li>Исторические данные: {params["start_year"]} - {params["cur_year"]}</li>
             <li>Прогнозные данные: {params["cur_year"] + 1} - {params["end_year"]}</li>
+            <li>Метод прогнозирования: {params["method"]}</li>
         </ul>
 
         <h3>Общие показатели востребованности</h3>
@@ -322,8 +330,8 @@ def _make_html_content(**params) -> str:
 
 async def main():
     from app.services.forecast import make_forecast
-    df = await make_forecast("all", "sma_3", (2019, 2023), (2024, 2026))
-    res = await make_report(df, "38.03.01 Экономика", (2019, 2023), (2024, 2026))
+    df = await make_forecast("all", "demographic", (2019, 2023), (2024, 2026))
+    res = await make_report(df, "38.03.01 Экономика", (2019, 2023), (2024, 2026), "demographic")
 
 if __name__ == "__main__":
     asyncio.run(main())

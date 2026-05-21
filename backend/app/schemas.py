@@ -124,6 +124,7 @@ class ReportCreate(BaseModel):
     input_specialty: str
     history_range: Tuple[int, int]
     forecast_range: Tuple[int, int]
+    method: str
 
 class ReportOut(BaseModel):
     success: bool
