@@ -1,6 +1,6 @@
 fastapi[standard]
 sqlalchemy
-psycopg2
+asyncpg
 pandas
 openpyxl
 pydantic
