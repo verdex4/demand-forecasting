@@ -13,6 +13,8 @@ async def make_forecast(specialties_names: Union[List[str], str],
 
     Доступные методы:
     * SMA_x - скользящее среднее за x лет
+    * demographic - демографический метод (поправка на рождаемость)
+    * exponential_smoothing - экспоненциальное сглаживание
 
     Args:
         specialties_names (Union[List[str], str]): Названия специальностей или "all"
@@ -57,6 +59,9 @@ async def make_forecast(specialties_names: Union[List[str], str],
         _forecast_func = _forecast_sma
     if method == "demographic":
         _forecast_func = _forecast_demographic
+    if method == "exponential_smoothing":
+        params["history_range"] = history_range
+        _forecast_func = _forecast_exp_smoothing
 
     if _forecast_func is None:
         raise ValueError(f"Метода прогнозирования {method} не существует, смотри доступные методы в описании к функции.")
@@ -68,7 +73,6 @@ async def make_forecast(specialties_names: Union[List[str], str],
     df = _calc_demand(df, weights)
 
     df = df.sort_values(["specialty_id", "year"]).reset_index(drop=True)
-    
     return df
 
 
@@ -310,5 +314,57 @@ async def _forecast_demographic(df: pd.DataFrame, forecast_range: Tuple[int, int
     result_df = result_df.sort_values(["specialty_id", "year"])
     return result_df
 
+async def _forecast_exp_smoothing(df: pd.DataFrame, forecast_range: Tuple[int, int], history_range: Tuple[int, int], indicators: List[str] = ["applications", "kcp", "enrolled"], alpha: float = 0.7) -> pd.DataFrame:
+    """Предсказывает основные показатели методом экспоненциального сглаживания.
+
+    Формула: Ŷ_t+1 = α * Y_t + (1 - α) * Ŷ_t, где 
+    * t - год
+    * α - коэффициент сглаживания (по умолчанию 0.7)
+
+    Note: эффективен только для прогноза на 1 год вперёд. 
+    При вводе большего количества лет прогноз остаётся тем же, что и на 1 год вперёд.
+    """
+    # заполняем недостающие года NaN
+    all_specialties = df["specialty_id"].unique()
+    all_years = range(history_range[0], history_range[1] + 1)
+    full_index = pd.MultiIndex.from_product(
+        [all_specialties, all_years], names=["specialty_id", "year"]
+    )
+    df = df.set_index(["specialty_id", "year"]).reindex(full_index).reset_index()
+
+    # добавляем новые индикаторы
+    new_indicators = []
+    for ind in indicators:
+        new = f"{ind}_pred"
+        df[new] = df[ind]
+        new_indicators.append(new)
+
+    # формируем базовый прогноз на начальный год + 1
+    rows = df[df["year"] == history_range[0] + 1].index
+    values = df.loc[df["year"] == history_range[0], indicators].values
+    df.loc[rows, new_indicators] = values
+
+    # заполняем прогнозные данные на истории
+    for y in range(history_range[0] + 2, history_range[1] + 1):
+        rows = df[df["year"] == y].index
+        actual_values = df.loc[df["year"] == y - 1, indicators].values
+        pred_values = df.loc[df["year"] == y - 1, new_indicators].values
+        df.loc[rows, new_indicators] = (alpha * actual_values + (1 - alpha) * pred_values).astype(int)
+    
+    new_rows = []
+    cur_df = df[df["year"] == history_range[1]].copy()
+    cur_df["year"] = forecast_range[0]
+    cur_df[indicators] = (alpha * cur_df[indicators].values + (1 - alpha) * cur_df[new_indicators].values).astype(int)
+    new_rows.append(cur_df)
+    for y in range(forecast_range[0] + 1, forecast_range[1] + 1):
+        cur_df = cur_df.copy()
+        cur_df["year"] = y
+        new_rows.append(cur_df)
+    
+    result_df = pd.concat([df] + new_rows, ignore_index=True)
+    result_df = result_df.sort_values(["specialty_id", "year"])
+    return result_df
+
 if __name__ == "__main__":
-    asyncio.run(make_forecast(["Экономика"], "demographic", (2019, 2023), (2024, 2026)))
+    df = asyncio.run(make_forecast("all", "exponential_smoothing", (2019, 2023), (2024, 2026)))
+    print(df[df["specialty_id"] == 113])
