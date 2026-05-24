@@ -1,15 +1,13 @@
 from fastapi import FastAPI, Request
 from sqlalchemy import select
-import asyncio
 from app.database import engine, Base, AsyncSessionLocal
 from contextlib import asynccontextmanager
 import app.models as models
 from app.seed import seed
-from app.api.v1 import specialties
+from app.api.v1 import application_stats, specialties, reports
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from app.settings import STATIC_DIR, TEMPLATES_DIR, REPORTS_DIR
-from app.api.v1 import reports
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,5 +48,6 @@ async def employee(request: Request):
 async def applicant(request: Request):
     return templates.TemplateResponse(request, "applicant.html")
 
+app.include_router(application_stats.router)
 app.include_router(specialties.router)
 app.include_router(reports.router)

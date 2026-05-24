@@ -16,6 +16,8 @@ async def make_report(df: pd.DataFrame, input_specialty: str, history_range: Tup
         method = f"Скользящее среднее за {int(method[4:])} лет"
     elif method == "demographic":
         method = "Демографический"
+    elif method == "exponential_smoothing":
+        method = "Экспоненциальное сглаживание"
     
     # парсим ввод специальности
     code = input_specialty.split(" ")[0]

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, HttpUrl
+from pydantic import BaseModel, ConfigDict, HttpUrl, field_validator
 from typing import List, Optional, Tuple
 
 
@@ -38,10 +38,12 @@ class ExamSetCreate(ExamSetBase):
 # 3. СХЕМЫ ДЛЯ СТАТИСТИКИ ПО ЗАЯВЛЕНИЯМ (ApplicationStats)
 class ApplicationStatsBase(BaseModel):
     """Базовая схема для статистики по заявлениям."""
+    id: int
+    specialty_id: int
     year: int
-    applications: int
-    kcp: int
-    enrolled: int
+    applications: int | None = None
+    kcp: int | None = None
+    enrolled: int | None = None
 
 class ApplicationStatsOut(ApplicationStatsBase):
     """Схема для вывода статистики по заявлениям."""
@@ -88,26 +90,30 @@ class BirthRateCreate(BirthRateBase):
 # 6. СХЕМЫ ДЛЯ СПЕЦИАЛЬНОСТЕЙ (Specialties)
 class SpecialtyBase(BaseModel):
     """Базовая схема для специальности."""
-    code: str
+    code: str | None = None
     name: str
+
+    @field_validator("code", mode="before")
+    @classmethod
+    def clean_nan(cls, c):
+        if isinstance(c, str) and c.lower() == "nan":
+            return None
+        return c
 
 class SpecialtyShortOut(SpecialtyBase):
     """Схема для вывода специальности (краткая)."""
     id: int
-    code: str
-    name: str
 
     model_config = ConfigDict(from_attributes=True)
 
 class SpecialtyOut(SpecialtyBase):
     """Схема для вывода специальности с комплектами и заявлениями по годам."""
     id: int
-    code: str
-    name: str
     exam_sets: List[ExamSetOut]
     application_stats: List[ApplicationStatsOut]
     
     model_config = ConfigDict(from_attributes=True)
+    
 
 class SpecialtyCreate(SpecialtyBase):
     """Схема для создания новой специальности."""
