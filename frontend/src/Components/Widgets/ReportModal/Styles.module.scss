@@ -1,0 +1,120 @@
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+
+  background: rgba(0, 0, 0, 0.6);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  backdrop-filter: blur(6px);
+}
+
+.modalContent {
+  width: 420px;
+
+  background: rgba(15, 23, 42, 0.95);
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  border-radius: 18px;
+
+  padding: 20px;
+
+  color: white;
+
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+
+  animation: pop 0.2s ease;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.closeButton {
+  position: absolute;
+
+  margin-left: 360px;
+
+  width: 32px;
+  height: 32px;
+
+  border-radius: 8px;
+
+  border: none;
+
+  cursor: pointer;
+
+  background: rgba(255, 255, 255, 0.08);
+
+  color: white;
+
+  transition: 0.2s;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.25);
+  }
+}
+
+.loadingState,
+.errorState,
+.successState {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.spinner {
+  width: 26px;
+  height: 26px;
+
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #3b82f6;
+
+  border-radius: 50%;
+
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.reportLink {
+  color: #60a5fa;
+  word-break: break-all;
+}
+
+.retryButton,
+.closeModalButton {
+  margin-top: 10px;
+
+  padding: 10px;
+
+  border-radius: 10px;
+
+  border: none;
+
+  cursor: pointer;
+
+  background: rgba(59, 130, 246, 0.2);
+  color: white;
+
+  transition: 0.2s;
+
+  &:hover {
+    background: rgba(59, 130, 246, 0.35);
+  }
+}

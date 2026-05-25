@@ -8,6 +8,7 @@ from app.api.v1 import application_stats, specialties, reports
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from app.settings import STATIC_DIR, TEMPLATES_DIR, REPORTS_DIR
+from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,8 +33,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-app.mount("/reports", StaticFiles(directory=REPORTS_DIR), name="reports")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+'''app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/reports", StaticFiles(directory=REPORTS_DIR), name="reports")'''
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 @app.get("/")

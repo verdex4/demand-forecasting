@@ -1,0 +1,1 @@
+export { ApplicantPage } from "./ApplicantLayout";
