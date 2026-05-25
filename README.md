@@ -6,7 +6,7 @@
 
 ## 🛠️ Технологический стек
 
-- **Backend:** Python, FastAPI, PostgreSQL, SQLAlchemy
+- **Backend:** Python, FastAPI, PostgreSQL, SQLAlchemy, Pydantic
 - **Frontend:** HTML, CSS, JavaScript
 
 ## 📋 Требования
@@ -14,12 +14,6 @@
 - **Python 3.10+** ([скачать](https://www.python.org/downloads/))
 - **PostgreSQL 14+** ([скачать](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads/))
 - **pip** (устанавливается вместе с Python)
-
-Проверить установленную версию можно командой:
-
-```bash
-python --version
-```
 
 ## 🐘 Установка PostgreSQL
 
@@ -35,7 +29,7 @@ python --version
 1. Откройте SQL Shell (psql). Он устанавливается вместе с базой данных.
 2. Нажимайте Enter до поля `Пароль пользователя postgres:`
 3. Введите пароль, заданный ранее.
-4. После входа введите команду ```CREATE DATABASE demand_forecast;```
+4. После входа введите команду ```CREATE DATABASE demand_forecasting;```
 
 ## 🚀 Установка проекта
 
