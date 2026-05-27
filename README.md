@@ -7,13 +7,14 @@
 ## 🛠️ Технологический стек
 
 - **Backend:** Python, FastAPI, PostgreSQL, SQLAlchemy, Pydantic
-- **Frontend:** HTML, CSS, JavaScript
+- **Frontend:** React, TypeScript, Vite
 
 ## 📋 Требования
 
 - **Python 3.10+** ([скачать](https://www.python.org/downloads/))
 - **PostgreSQL 14+** ([скачать](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads/))
 - **pip** (устанавливается вместе с Python)
+- **Node.js** ([скачать](https://nodejs.org/en/download))
 
 ## 🐘 Установка PostgreSQL
 
@@ -30,6 +31,12 @@
 2. Нажимайте Enter до поля `Пароль пользователя postgres:`
 3. Введите пароль, заданный ранее.
 4. После входа введите команду ```CREATE DATABASE demand_forecasting;```
+
+## 🌿 Установка Node.js
+
+На официальном сайте выберите версию prebuilt Node.js, находящуюся ниже (этого хватит для приложения), и скачайте её.
+Следуйте инструкции установщика и нажимайте "Next".
+Дополнительные файлы в конце можно не устанавливать.
 
 ## 🚀 Установка проекта
 
@@ -62,10 +69,13 @@ venv\Scripts\activate
 pip install -r backend/requirements.txt
 ```
 
-### 4. Создайте файл конфигурации .env
+### 4. Создайте файлы конфигурации .env
 
-В главной папке проекта создайте рабочий файл. Для этого скопируйте шаблон командой:
+**Backend**
+
+В папке backend проекта создайте рабочий файл. Для этого скопируйте шаблон командой:
 ```bash
+cd backend
 copy .env.example .env
 ```
 
@@ -75,21 +85,45 @@ copy .env.example .env
 - В строку `host` впишите localhost:5432 (это адрес для запуска программы на вашем компьютере)
 - В строку `database_name` впишите имя созданной базы данных (в этой инструкции мы используем `demand_forecasting`)
 
+**Frontend**
+
+Проделайте похожие действия из пункта выше:
+```bash
+cd ../frontend
+copy .env.example .env
+```
+
+Откройте созданный файл .env текстовым редактором:
+- Впишите URL вашего backend-приложения (для локальной разработки это `http://localhost:8000`)
+
 ## ▶️ Запуск проекта
+
+**Backend**
 
 Перейдите в папку `backend` и запустите сервер через `uvicorn`:
 
 ```bash
-cd backend
+cd ../backend
 uvicorn app.main:app --reload
 ```
 
 > **Примечание:** Флаг `--reload` включает автоматическую перезагрузку сервера при изменении кода (удобно для разработки).
 
+**Frontend**
+
+Откройте новый терминал, скачайте менеджер пакетов bun, установите зависимости и запустите проект.
+
+```bash
+powershell -c "irm bun.sh/install.ps1 | iex"
+cd frontend
+bun install
+bun run dev
+```
+
 ## ✅ Проверка
 
 После запуска сервер будет доступен по адресам:
 
-- **Веб-приложение:** [http://127.0.0.1:8000](http://127.0.0.1:8000)
-- **Swagger UI (документация):** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- **ReDoc:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+- **Веб-приложение:** [http://localhost:5173](http://localhost:5173)
+- **Swagger UI (документация):** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
