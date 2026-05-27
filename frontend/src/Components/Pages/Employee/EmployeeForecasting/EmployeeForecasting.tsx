@@ -57,11 +57,16 @@ function EmployeeForecastingComponent(): JSX.Element {
     yearFromHistory &&
     yearToHistory &&
     (
-      forecastMethod !== 'moving_average' ||
+      forecastMethod !== 'sma' ||
       movingAverageYears
     );
 
   const handleSubmit = async () => {
+    const finalMethod =
+      forecastMethod === 'sma' && movingAverageYears
+        ? `sma_${movingAverageYears}`
+        : forecastMethod;
+
     const params = {
       specialty,
 
@@ -75,7 +80,7 @@ function EmployeeForecastingComponent(): JSX.Element {
         to: yearToHistory
       },
 
-      method: forecastMethod
+      method: finalMethod
     };
 
     setIsModalOpen(true);
@@ -189,7 +194,7 @@ function EmployeeForecastingComponent(): JSX.Element {
               onChange={(e) => {
                 setForecastMethod(e.target.value);
 
-                if (e.target.value !== 'moving_average') {
+                if (e.target.value !== 'sma') {
                   setMovingAverageYears('');
                 }
               }}
@@ -198,7 +203,7 @@ function EmployeeForecastingComponent(): JSX.Element {
                 Выберите метод
               </option>
 
-              <option value="moving_average">
+              <option value="sma">
                 Скользящее среднее
               </option>
 
@@ -212,7 +217,7 @@ function EmployeeForecastingComponent(): JSX.Element {
             </select>
           </div>
 
-          {forecastMethod === 'moving_average' && (
+          {forecastMethod === 'sma' && (
             <div className={styles.input__container}>
               <label htmlFor="movingAverageYears">
                 Количество лет

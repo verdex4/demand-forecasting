@@ -17,7 +17,7 @@ function HeaderComponent({role}: HeaderProps): JSX.Element {
     <header className={styles.header}>
       <div className={styles.container}>
         <h1 className={styles.title}>
-          UniAnalitics
+          UniAnalytics
         </h1>
 
         {role && (
