@@ -13,7 +13,13 @@ async def make_report(df: pd.DataFrame, input_specialty: str, history_range: Tup
     """Создаёт HTML-отчёт о востребованности специальности и сохраняет в backend/data/reports."""
     # отображаем метод в читаемом формате
     if method.startswith("sma_"):
-        method = f"Скользящее среднее за {int(method[4:])} лет"
+        y = int(method[4:])
+        if y == 1:
+            method = "Скользящее среднее за 1 год"
+        elif 2 <= y <= 4:
+            method = f"Скользящее среднее за {y} года"
+        else:
+            method = f"Скользящее среднее за {y} лет"
     elif method == "demographic":
         method = "Демографический"
     elif method == "exponential_smoothing":
@@ -77,13 +83,22 @@ async def make_report(df: pd.DataFrame, input_specialty: str, history_range: Tup
     _plot_radar(spec_cur, spec_last)
     radar_plot = _plot_to_base64()
 
+    # создаем понятный вид
+    if start_year == cur_year:
+        history_data = f"{start_year} г."
+    else:
+        history_data = f"{start_year} - {cur_year} г."
+    if cur_year + 1 == end_year:
+        forecast_data = f"{cur_year + 1} г."
+    else:
+        forecast_data = f"{cur_year + 1} - {end_year} г."
+
     # создаем html-контент
     html_content = _make_html_content(
         specialty_name=specialty_name,
         method=method,
-        start_year=start_year,
-        cur_year=cur_year,
-        end_year=end_year,
+        history_data=history_data,
+        forecast_data=forecast_data,
         cur_demand=cur_demand,
         future_demand=future_demand,
         stability=stability,
@@ -117,6 +132,8 @@ def _plot_trend(history: pd.DataFrame, future: pd.DataFrame, indicator: str, xla
     plt.plot(history["year"], history[indicator], label="Факт", color="#1f77b4", marker="s", markersize=7, linestyle="-")
 
     plt.xlabel(xlabel)
+    from matplotlib.ticker import MaxNLocator
+    plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
     plt.ylabel(ylabel)
     plt.title(title)
     plt.legend()
@@ -288,6 +305,7 @@ def _make_html_content(**params) -> str:
             h1 {{ color: #333; }}
             .plot-container {{ text-align: center; margin: 20px 0; }}
             img {{ max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; }}
+            .text-secondary {{ color: #666; font-size: 0.8em; margin-top: 10px; }}
         </style>
     </head>
     <body>
@@ -295,8 +313,8 @@ def _make_html_content(**params) -> str:
 
         <h3>Взятые данные</h3>
         <ul>
-            <li>Исторические данные: {params["start_year"]} - {params["cur_year"]}</li>
-            <li>Прогнозные данные: {params["cur_year"] + 1} - {params["end_year"]}</li>
+            <li>Исторические данные: {params["history_data"]}</li>
+            <li>Прогнозные данные: {params["forecast_data"]}</li>
             <li>Метод прогнозирования: {params["method"]}</li>
         </ul>
 
@@ -306,18 +324,21 @@ def _make_html_content(**params) -> str:
             <li>Прогноз спроса: <strong>{params["future_demand"][0]}</strong> ({params["future_demand"][1][0]}-е место из {params["future_demand"][1][1]})</li>
             <li>Надежность прогноза: <strong>{params["stability"][0]}</strong> ({params["stability"][1][0]}-е место из {params["stability"][1][1]} по стабильности спроса)</li>
         </ul>
-        <p style="font-size: 0.8em; color: #666; margin-top: 10px;">
+        <p class="text-secondary">
         Общее количество специальностей может отличаться, т.к. часть данных отсутствует.
         </p>
         <p>Ниже приведена динамика изменения общей востребованности:</p>
         <div class="plot-container">
             <img src="data:image/png;base64,{params["demand_plot"]}" alt="График">
         </div>
+        <p class="text-secondary">
+        Считаем, что за первый год нельзя посчитать востребованность. Это стартовая точка для будущих лет.
+        </p>
 
         <h3>Основные показатели и прогноз развития</h3>
         {params["table"]}
-        <p style="font-size: 0.8em; color: #666; margin-top: 10px;">
-        Место в вузе находится среди всех специальностей по указанному показателю (чем выше показатель, тем выше место).
+        <p class="text-secondary">
+        Место в вузе находится среди всех специальностей по указанному показателю. Чем выше показатель, тем выше место.
         </p>
 
         <h3>Вектор изменения востребованности направления</h3>
@@ -332,8 +353,8 @@ def _make_html_content(**params) -> str:
 
 async def main():
     from app.services.forecast import make_forecast
-    df = await make_forecast("all", "demographic", (2019, 2023), (2024, 2026))
-    res = await make_report(df, "38.03.01 Экономика", (2019, 2023), (2024, 2026), "demographic")
+    df = await make_forecast("all", "sma_3", (2019, 2023), (2024, 2026))
+    res = await make_report(df, "39.03.01 Социология", (2019, 2023), (2024, 2026), "sma_3")
 
 if __name__ == "__main__":
     asyncio.run(main())
