@@ -1,0 +1,35 @@
+.header {
+  width: 100%;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  padding: 16px;
+
+  border-radius: var(--radius-lg);
+
+  background: rgba(255,255,255,0.05);
+
+  border: 1px solid var(--border-primary);
+
+  backdrop-filter: blur(12px);
+}
+
+.title {
+  font-size: 20px;
+
+  font-weight: 700;
+
+  color: white;
+}
+
+.role {
+  font-size: 13px;
+
+  color: var(--text-muted);
+
+  font-weight: 400;
+}

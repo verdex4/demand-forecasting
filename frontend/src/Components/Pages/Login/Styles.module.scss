@@ -1,0 +1,61 @@
+.wrapper {
+  min-height: 100vh;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding: 20px;
+
+  background:
+    radial-gradient(circle at top left, #3b82f6 0%, transparent 30%),
+    radial-gradient(circle at bottom right, #8b5cf6 0%, transparent 30%),
+    #0f172a;
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  padding: 40px;
+
+  border-radius: var(--radius-xl);
+
+  background: rgba(255,255,255,0.08);
+
+  border: 1px solid rgba(255,255,255,0.12);
+
+  backdrop-filter: blur(18px);
+
+  box-shadow: var(--shadow-card);
+}
+
+.title {
+  font-size: clamp(28px, 4vw, 36px);
+
+  font-weight: 700;
+
+  color: white;
+
+  text-align: center;
+}
+
+.subtitle {
+  font-size: 16px;
+
+  font-weight: 400;
+
+  color: var(--text-secondary);
+
+  text-align: center;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

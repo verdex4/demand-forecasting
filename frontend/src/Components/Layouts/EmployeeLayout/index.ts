@@ -1,0 +1,2 @@
+export { EmployeePage } from "./EmployeeLayout";
+
