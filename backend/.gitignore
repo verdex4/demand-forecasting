@@ -218,6 +218,6 @@ __marimo__/
 .streamlit/secrets.toml
 
 # добавляем отчеты
-backend/data/reports/*
+data/reports/*
 # оставляем пример
-!backend/data/reports/example.html
+!data/reports/example.html
