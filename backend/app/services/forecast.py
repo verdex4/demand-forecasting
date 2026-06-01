@@ -79,16 +79,16 @@ async def make_forecast(specialties_names: Union[List[str], str],
 def _calc_demand(df: pd.DataFrame, weights: Dict[str, float] | None = None) -> pd.DataFrame:
     """Считает показатели востребованности специальности.
 
-    D = (w1 * X1 + w2 * X2 + w3 * X3 + w4 * X4) * exp(w5 * X5), где
-    * X1 - коммерческий интерес
-    * X2 - показатель заявлений (доля рынка + рост)
-    * X3 - показатель конкурса (доля рынка + рост)
-    * X4 - показатель КЦП (доля рынка + рост)
-    * X5 - доля недобора относительно КЦП
+    D = (w1 * D1 + w2 * D2 + w3 * D3 + w4 * D4) * exp(w5 * D5), где
+    * D1 - коммерческий интерес
+    * D2 - показатель заявлений (доля рынка + рост)
+    * D3 - показатель конкурса (доля рынка + рост)
+    * D4 - показатель КЦП (доля рынка + рост)
+    * D5 - доля недобора относительно КЦП
 
     Свойства:
-    * X_i - вектора
-    * 0 <= x <= 1 для любого x в (X1, X2, X3, X4, X5)
+    * D_i - вектора
+    * 0 <= d <= 1 для любого d в (D1, D2, D3, D4, D5)
     * w1 + w2 + w3 + w4 = 1; w5 < 0, чем меньше, тем жестче штраф
 
     Значения по умолчанию:
@@ -100,7 +100,7 @@ def _calc_demand(df: pd.DataFrame, weights: Dict[str, float] | None = None) -> p
 
     Args:
         df (pd.DataFrame): Датафрейм с данными.
-        coeffs (dict): Коэффициенты прогноза. Пример: {"k1": 0.25, "k2": 0.4, "k3": 0.25, "k4": 0.1, "k5": -10, "k6": -2}.
+        coeffs (dict): Коэффициенты прогноза. Пример: {"w1": 0.25, "w2": 0.4, "w3": 0.25, "w4": 0.1, "w5": -10}.
 
     Returns:
         pd.DataFrame: Датафрейм с показателями востребованности.
@@ -154,7 +154,7 @@ def _calc_demand(df: pd.DataFrame, weights: Dict[str, float] | None = None) -> p
     # считаем D4 как взвешенную сумму
     df["D4"] = 0.4 * df["kcp_diff"] + 0.6 * df["kcp_growth"]
 
-    # ДОБАВЛЯЕМ ШТРАФ P
+    # ДОБАВЛЯЕМ ШТРАФ D5
     # обрабатываем крайние случаи
     conditions = [
         df["enrolled"] == 0,         # нет зачисленных
@@ -167,17 +167,17 @@ def _calc_demand(df: pd.DataFrame, weights: Dict[str, float] | None = None) -> p
         1  # штрафа нет
     ]
 
-    # ставим соотвествующие значения, если условия не подошли - считаем по формуле
-    df["P"] = np.select(conditions, 
-                        choices,
-                        default=np.exp(weights["w5"] * (df["kcp"] - df["enrolled"]) / df["kcp"]))
+    # ставим соотвествующие значения, если условия не подошли - считаем по формуле долю недобора
+    df["D5"] = np.select(conditions, choices, default=(df["kcp"] - df["enrolled"]) / df["kcp"])
 
     # СЧИТАЕМ ГОДОВОЙ ПОКАЗАТЕЛЬ D
-    df["D"] = (weights["w1"] * df["D1"] + 
-                    weights["w2"] * df["D2"] + 
-                    weights["w3"] * df["D3"] + 
-                    weights["w4"] * df["D4"] *
-                    df["P"])
+    df["D"] = (
+        weights["w1"] * df["D1"] + 
+        weights["w2"] * df["D2"] + 
+        weights["w3"] * df["D3"] + 
+        weights["w4"] * df["D4"] * 
+        np.exp(weights["w5"] * df["D5"])
+    )
 
     return df
 
@@ -317,7 +317,7 @@ async def _forecast_demographic(df: pd.DataFrame, forecast_range: Tuple[int, int
 async def _forecast_exp_smoothing(df: pd.DataFrame, forecast_range: Tuple[int, int], history_range: Tuple[int, int], indicators: List[str] = ["applications", "kcp", "enrolled"], alpha: float = 0.7) -> pd.DataFrame:
     """Предсказывает основные показатели методом экспоненциального сглаживания.
 
-    Формула: Ŷ_t+1 = α * Y_t + (1 - α) * Ŷ_t, где 
+    Формула: Ŷ_t = α * Y_{t-1} + (1 - α) * Ŷ_{t-1}, где 
     * t - год
     * α - коэффициент сглаживания (по умолчанию 0.7)
 

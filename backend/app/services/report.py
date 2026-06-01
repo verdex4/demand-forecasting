@@ -318,16 +318,16 @@ def _make_html_content(**params) -> str:
             <li>Метод прогнозирования: {params["method"]}</li>
         </ul>
 
-        <h3>Общие показатели востребованности</h3>
+        <h3>Итоговый показатель востребованности</h3>
         <ul>
-            <li>Текущий спрос: <strong>{params["cur_demand"][0]}</strong> ({params["cur_demand"][1][0]}-е место из {params["cur_demand"][1][1]})</li>
-            <li>Прогноз спроса: <strong>{params["future_demand"][0]}</strong> ({params["future_demand"][1][0]}-е место из {params["future_demand"][1][1]})</li>
-            <li>Надежность прогноза: <strong>{params["stability"][0]}</strong> ({params["stability"][1][0]}-е место из {params["stability"][1][1]} по стабильности спроса)</li>
+            <li>Текущий уровень: <strong>{params["cur_demand"][0]}</strong> ({params["cur_demand"][1][0]}-е место из {params["cur_demand"][1][1]})</li>
+            <li>Ожидаемый уровень: <strong>{params["future_demand"][0]}</strong> ({params["future_demand"][1][0]}-е место из {params["future_demand"][1][1]})</li>
+            <li>Стабильность показателя: <strong>{params["stability"][0]}</strong> ({params["stability"][1][0]}-е место из {params["stability"][1][1]} по стабильности)</li>
         </ul>
         <p class="text-secondary">
         Общее количество специальностей может отличаться, т.к. часть данных отсутствует.
         </p>
-        <p>Ниже приведена динамика изменения общей востребованности:</p>
+        <p>Ниже приведена динамика изменения итоговой востребованности:</p>
         <div class="plot-container">
             <img src="data:image/png;base64,{params["demand_plot"]}" alt="График">
         </div>
@@ -335,16 +335,22 @@ def _make_html_content(**params) -> str:
         Считаем, что за первый год нельзя посчитать востребованность. Это стартовая точка для будущих лет.
         </p>
 
-        <h3>Основные показатели и прогноз развития</h3>
+        <h3>Базовые показатели и прогноз развития</h3>
         {params["table"]}
         <p class="text-secondary">
         Место в вузе находится среди всех специальностей по указанному показателю. Чем выше показатель, тем выше место.
         </p>
 
         <h3>Вектор изменения востребованности направления</h3>
-        <p>Вычисленные алгоритмом 4 показателя востребованности формируют общий спрос и имеют значения от 0 до 1. Вклад каждого показателя приведён на лепестковой диаграмме ниже:</p>
+        <p>Лепестковая диаграмма ниже отображает текущий и прогнозируемый вклад каждого фактора в итоговый показатель востребованности.</p>
         <div class="plot-container">
             <img src="data:image/png;base64,{params["radar_plot"]}" alt="График">
+        </div>
+        <div style="font-family: sans-serif; background-color: #f0f7ff; border-left: 4px solid #0066cc; padding: 15px; margin-top: 30px; border-radius: 4px;">
+        <p style="margin: 0; font-size: 14px; color: #333333;">
+            <strong>Не понятна интерпретация результатов?</strong><br>
+            Загляните в раздел <a href="http://localhost:5173/employee/help" style="color: #0066cc; font-weight: bold; text-decoration: none;">"Справка"</a> на главной странице в личном кабинете — там собрана подробная информация.
+        </p>
         </div>
         <p><strong>Дата создания:</strong> {date.today().strftime("%d.%m.%Y")}</p>
     </body>
