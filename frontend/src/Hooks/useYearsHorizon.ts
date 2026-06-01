@@ -9,7 +9,7 @@ const generateYears = (): Year[] => {
   const currentYear = new Date().getFullYear();
   const years: Year[] = [];
   
-  for (let year = 2020; year <= currentYear + 10; year++) {
+  for (let year = 2020; year <= 2030; year++) {
     years.push({ 
       value: year.toString(), 
       label: year.toString() 
