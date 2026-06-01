@@ -6,9 +6,7 @@ import styles from './Styles.module.scss';
 
 const employeeLinks = [
   {name: 'Прогнозирование', link: '/employee/forecasting'},
-  {name: 'Специальности', link: '/employee/specialties'},
-  {name: 'Статистика ЕГЭ', link: '/employee/statistics'},
-  {name: 'Отчёты', link: '/employee/reports'}
+  {name: 'Справка', link: '/employee/help'},
 ];
 
 function EmployeeLayout(): JSX.Element {

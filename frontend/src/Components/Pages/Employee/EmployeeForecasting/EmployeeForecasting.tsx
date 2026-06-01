@@ -255,60 +255,6 @@ function EmployeeForecastingComponent(): JSX.Element {
 
           <div className={styles.input__container}>
             <label>
-              Горизонт прогноза
-            </label>
-
-            <div className={styles.years}>
-              <select
-                name="YearFromHorizon"
-                id="YearFromHorizon"
-                value={yearFromHorizon}
-                onChange={(e) =>
-                  setYearFromHorizon(e.target.value)
-                }
-              >
-                <option value="">
-                  Год от
-                </option>
-
-                {yearsHorizon.map((year) => (
-                  <option
-                    key={year.value}
-                    value={year.value}
-                  >
-                    {year.label}
-                  </option>
-                ))}
-              </select>
-
-              <span>—</span>
-
-              <select
-                name="YearToHorizon"
-                id="YearToHorizon"
-                value={yearToHorizon}
-                onChange={(e) =>
-                  setYearToHorizon(e.target.value)
-                }
-              >
-                <option value="">
-                  Год до
-                </option>
-
-                {yearsHorizon.map((year) => (
-                  <option
-                    key={year.value}
-                    value={year.value}
-                  >
-                    {year.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className={styles.input__container}>
-            <label>
               Исторические данные
             </label>
 
@@ -360,6 +306,60 @@ function EmployeeForecastingComponent(): JSX.Element {
               </select>
             </div>
           </div>
+          
+          <div className={styles.input__container}>
+            <label>
+              Горизонт прогноза
+            </label>
+
+            <div className={styles.years}>
+              <select
+                name="YearFromHorizon"
+                id="YearFromHorizon"
+                value={yearFromHorizon}
+                onChange={(e) =>
+                  setYearFromHorizon(e.target.value)
+                }
+              >
+                <option value="">
+                  Год от
+                </option>
+
+                {yearsHorizon.map((year) => (
+                  <option
+                    key={year.value}
+                    value={year.value}
+                  >
+                    {year.label}
+                  </option>
+                ))}
+              </select>
+
+              <span>—</span>
+
+              <select
+                name="YearToHorizon"
+                id="YearToHorizon"
+                value={yearToHorizon}
+                onChange={(e) =>
+                  setYearToHorizon(e.target.value)
+                }
+              >
+                <option value="">
+                  Год до
+                </option>
+
+                {yearsHorizon.map((year) => (
+                  <option
+                    key={year.value}
+                    value={year.value}
+                  >
+                    {year.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
         <div className={styles.button_container}>
@@ -378,6 +378,7 @@ function EmployeeForecastingComponent(): JSX.Element {
             Настройки отчёта
           </Button>
         </div>
+        
       </div>
 
       <ReportModalWindow
