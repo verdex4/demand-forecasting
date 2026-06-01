@@ -44,19 +44,19 @@ function EmployeeHelpComponent(): JSX.Element {
           <ul>
             <li>
               <div className={styles.formula}>
-                Ŷₜ = average(Yₜ₋₁ ... Yₜ₋ₙ)
+                Ŷ<sub>t</sub> = average(Y<sub>t-1</sub>, Y<sub>t-2</sub>, ..., Y<sub>t-n</sub>)
               </div>
             </li>
 
             <li>
               <div className={styles.formula}>
-                Ŷₜ = Yₜ₋₁ × (1 + изменение_рождаемости)
+                Ŷ<sub>t</sub> = Y<sub>t-1</sub> × (1 + изменение_рождаемости)
               </div>
             </li>
 
             <li>
               <div className={styles.formula}>
-                Ŷₜ = α × Yₜ₋₁ + (1 - α) × Ŷₜ₋₁
+                Ŷ<sub>t</sub> = α × Y<sub>t-1</sub> + (1 - α) × Ŷ<sub>t-1</sub>
               </div>
             </li>
           </ul>
@@ -77,31 +77,31 @@ function EmployeeHelpComponent(): JSX.Element {
 
               <tbody>
                 <tr>
-                  <td>D₁</td>
+                  <td>D<sub>1</sub></td>
                   <td>Коммерческий интерес</td>
                   <td>Равен доле внебюджетников</td>
                 </tr>
 
                 <tr>
-                  <td>D₂</td>
+                  <td>D<sub>2</sub></td>
                   <td>Показатель заявлений</td>
                   <td>Разница с медианой и темп прироста</td>
                 </tr>
 
                 <tr>
-                  <td>D₃</td>
+                  <td>D<sub>3</sub></td>
                   <td>Показатель конкурса</td>
                   <td>Разница с медианой и темп прироста</td>
                 </tr>
 
                 <tr>
-                  <td>D₄</td>
+                  <td>D<sub>4</sub></td>
                   <td>Показатель КЦП</td>
                   <td>Разница с медианой и темп прироста</td>
                 </tr>
 
                 <tr>
-                  <td>D₅</td>
+                  <td>D<sub>5</sub></td>
                   <td>Штраф за недобор</td>
                   <td>Доля незачисленных относительно КЦП</td>
                 </tr>
@@ -123,33 +123,33 @@ function EmployeeHelpComponent(): JSX.Element {
 
               <tbody>
                 <tr>
-                  <td>w₁</td>
+                  <td>w<sub>1</sub></td>
                   <td>0.25</td>
-                  <td>Коммерческий интерес (D₁)</td>
+                  <td>Коммерческий интерес (D<sub>1</sub>)</td>
                 </tr>
 
                 <tr>
-                  <td>w₂</td>
+                  <td>w<sub>2</sub></td>
                   <td>0.25</td>
-                  <td>Показатель заявлений (D₂)</td>
+                  <td>Показатель заявлений (D<sub>2</sub>)</td>
                 </tr>
 
                 <tr>
-                  <td>w₃</td>
+                  <td>w<sub>3</sub></td>
                   <td>0.40</td>
-                  <td>Показатель конкурса (D₃)</td>
+                  <td>Показатель конкурса (D<sub>3</sub>)</td>
                 </tr>
 
                 <tr>
-                  <td>w₄</td>
+                  <td>w<sub>4</sub></td>
                   <td>0.10</td>
-                  <td>Показатель КЦП (D₄)</td>
+                  <td>Показатель КЦП (D<sub>4</sub>)</td>
                 </tr>
 
                 <tr>
-                  <td>w₅</td>
+                  <td>w<sub>5</sub></td>
                   <td>-10</td>
-                  <td>Штраф за недобор (D₅)</td>
+                  <td>Штраф за недобор (D<sub>5</sub>)</td>
                 </tr>
               </tbody>
             </table>
@@ -160,7 +160,7 @@ function EmployeeHelpComponent(): JSX.Element {
           <h2>Итоговый показатель востребованности</h2>
 
           <div className={styles.formula}>
-            D = (w₁·D₁ + w₂·D₂ + w₃·D₃ + w₄·D₄) × exp(w₅·D₅)
+            D = (w<sub>1</sub>·D<sub>1</sub> + w<sub>2</sub>·D<sub>2</sub> + w<sub>3</sub>·D<sub>3</sub> + w<sub>4</sub>·D<sub>4</sub>) × exp(w<sub>5</sub>·D<sub>5</sub>)
           </div>
 
           <p>
