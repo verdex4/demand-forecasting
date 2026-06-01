@@ -1,4 +1,4 @@
-import { JSX, memo, useState, useEffect } from "react";
+import { JSX, memo, useState, useEffect, useMemo, useRef } from "react";
 import styles from './Styles.module.scss';
 
 import { useSpecialties } from "@/Hooks/useSpecialties";
@@ -43,11 +43,83 @@ function EmployeeForecastingComponent(): JSX.Element {
   const [forecastMethod, setForecastMethod] = useState('');
   const [movingAverageYears, setMovingAverageYears] = useState('');
 
-  const [yearFromHorizon, setYearFromHorizon] = useState('');
   const [yearToHorizon, setYearToHorizon] = useState('');
 
   const [yearFromHistory, setYearFromHistory] = useState('');
   const [yearToHistory, setYearToHistory] = useState('');
+
+  // Состояние для отображения предупреждения о невозможности редактирования
+  const [showReadonlyWarning, setShowReadonlyWarning] = useState(false);
+  const warningRef = useRef<HTMLDivElement>(null);
+
+  // Начальный год прогноза вычисляется автоматически и не хранится в стейте
+  const yearFromHorizon = useMemo(() => {
+    if (!yearToHistory) return '';
+    const nextYearStr = String(Number(yearToHistory) + 1);
+    const isAvailable = yearsHorizon.some((y) => y.value === nextYearStr);
+    return isAvailable ? nextYearStr : '';
+  }, [yearToHistory, yearsHorizon]);
+
+  const yearsHistoryToOptions = useMemo(() => {
+    if (!yearFromHistory) return yearsHistory;
+    const fromNum = Number(yearFromHistory);
+    return yearsHistory.filter((y) => Number(y.value) >= fromNum);
+  }, [yearFromHistory, yearsHistory]);
+
+  const yearsHorizonToOptions = useMemo(() => {
+    let options = yearsHorizon;
+    
+    // Ограничение по истории: только года > yearToHistory
+    if (yearToHistory) {
+      const historyEnd = Number(yearToHistory);
+      options = options.filter((y) => Number(y.value) > historyEnd);
+    }
+    
+    // Ограничение по начальному году прогноза: только года >= yearFromHorizon
+    if (yearFromHorizon) {
+      const fromNum = Number(yearFromHorizon);
+      options = options.filter((y) => Number(y.value) >= fromNum);
+    }
+    
+    return options;
+  }, [yearFromHorizon, yearToHistory, yearsHorizon]);
+
+  useEffect(() => {
+    if (!yearFromHistory) {
+      setYearToHistory('');
+      return;
+    }
+    if (yearToHistory && Number(yearToHistory) < Number(yearFromHistory)) {
+      setYearToHistory('');
+    }
+  }, [yearFromHistory, yearToHistory]);
+
+  useEffect(() => {
+    if (!yearFromHorizon) {
+      setYearToHorizon('');
+      return;
+    }
+    if (yearToHorizon && Number(yearToHorizon) < Number(yearFromHorizon)) {
+      setYearToHorizon('');
+    }
+  }, [yearFromHorizon, yearToHorizon]);
+
+  // Скрываем предупреждение при клике в любое другое место экрана
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        warningRef.current &&
+        !warningRef.current.contains(event.target as Node)
+      ) {
+        setShowReadonlyWarning(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const isFormValid =
     specialty &&
@@ -95,8 +167,6 @@ function EmployeeForecastingComponent(): JSX.Element {
     setMovingAverageYears('');
 
     setYearFromHistory('');
-    setYearFromHorizon('');
-
     setYearToHistory('');
     setYearToHorizon('');
 
@@ -110,22 +180,6 @@ function EmployeeForecastingComponent(): JSX.Element {
 
     resetReportState();
   };
-
-  useEffect(() => {
-    if (!yearFromHorizon || !yearToHorizon) return;
-
-    if (Number(yearFromHorizon) > Number(yearToHorizon)) {
-      setYearToHorizon(yearFromHorizon);
-    }
-  }, [yearFromHorizon, yearToHorizon]);
-
-  useEffect(() => {
-    if (!yearFromHistory || !yearToHistory) return;
-
-    if (Number(yearFromHistory) > Number(yearToHistory)) {
-      setYearToHistory(yearFromHistory);
-    }
-  }, [yearFromHistory, yearToHistory]);
 
   if (loadingSpec || loadingHorizon || loadingHistory) {
     return <div>Загрузка...</div>;
@@ -253,6 +307,7 @@ function EmployeeForecastingComponent(): JSX.Element {
             </div>
           )}
 
+          {/* --- Исторические данные ------------------------------------ */}
           <div className={styles.input__container}>
             <label>
               Исторические данные
@@ -268,7 +323,7 @@ function EmployeeForecastingComponent(): JSX.Element {
                 }
               >
                 <option value="">
-                  Год от
+                  Начальный год
                 </option>
 
                 {yearsHistory.map((year) => (
@@ -290,12 +345,13 @@ function EmployeeForecastingComponent(): JSX.Element {
                 onChange={(e) =>
                   setYearToHistory(e.target.value)
                 }
+                disabled={!yearFromHistory}
               >
                 <option value="">
-                  Год до
+                  {yearFromHistory ? 'Конечный год' : 'Сначала выберите начальный год'}
                 </option>
 
-                {yearsHistory.map((year) => (
+                {yearsHistoryToOptions.map((year) => (
                   <option
                     key={year.value}
                     value={year.value}
@@ -306,34 +362,43 @@ function EmployeeForecastingComponent(): JSX.Element {
               </select>
             </div>
           </div>
-          
+
+          {/* Горизонт прогноза */}
           <div className={styles.input__container}>
             <label>
               Горизонт прогноза
             </label>
 
-            <div className={styles.years}>
-              <select
-                name="YearFromHorizon"
-                id="YearFromHorizon"
-                value={yearFromHorizon}
-                onChange={(e) =>
-                  setYearFromHorizon(e.target.value)
-                }
+            <div className={styles.years} style={{ position: 'relative' }}>
+              
+              <div
+                ref={warningRef}
+                onClick={() => setShowReadonlyWarning(true)}
+                style={{
+                  padding: '0 16px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                  color: yearFromHorizon ? '#fff' : 'rgba(255, 255, 255)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '8px',
+                  cursor: 'help',
+                  minHeight: '48px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  userSelect: 'none',
+                  fontSize: '16px',
+                  flex: 1,
+                  boxSizing: 'border-box',
+                  opacity: yearFromHorizon ? 1 : 0.7
+                }}
               >
-                <option value="">
-                  Год от
-                </option>
+                {yearFromHorizon || 'Сначала заполните исторические данные'}
+              </div>
 
-                {yearsHorizon.map((year) => (
-                  <option
-                    key={year.value}
-                    value={year.value}
-                  >
-                    {year.label}
-                  </option>
-                ))}
-              </select>
+              {showReadonlyWarning && (
+                <div className={styles.readonly_warning}>
+                  ⚠️ Данное поле заполняется автоматически и не может быть изменено
+                </div>
+              )}
 
               <span>—</span>
 
@@ -344,12 +409,13 @@ function EmployeeForecastingComponent(): JSX.Element {
                 onChange={(e) =>
                   setYearToHorizon(e.target.value)
                 }
+                disabled={!yearFromHorizon}
               >
                 <option value="">
-                  Год до
+                  {yearFromHorizon ? 'Конечный год' : 'Сначала заполните исторические данные'}
                 </option>
 
-                {yearsHorizon.map((year) => (
+                {yearsHorizonToOptions.map((year) => (
                   <option
                     key={year.value}
                     value={year.value}
@@ -378,7 +444,7 @@ function EmployeeForecastingComponent(): JSX.Element {
             Настройки отчёта
           </Button>
         </div>
-        
+
       </div>
 
       <ReportModalWindow

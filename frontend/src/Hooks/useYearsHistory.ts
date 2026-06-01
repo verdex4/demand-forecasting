@@ -1,21 +1,18 @@
 import { useState, useEffect } from 'react';
 
-type Year = {
+export type Year = {
   value: string;
   label: string;
 };
 
+const START_YEAR = 2019;
+const END_YEAR = 2023;
+
 const generateYears = (): Year[] => {
-  const currentYear = new Date().getFullYear();
   const years: Year[] = [];
-  
-  for (let year = 2019; year <= 2023; year++) {
-    years.push({ 
-      value: year.toString(), 
-      label: year.toString() 
-    });
+  for (let year = START_YEAR; year <= END_YEAR; year++) {
+    years.push({ value: year.toString(), label: year.toString() });
   }
-  
   return years;
 };
 

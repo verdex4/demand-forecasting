@@ -92,6 +92,23 @@
   background: #111827;
 }
 
+.readonly_warning {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  background-color: #334155;
+  color: #fde68a;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  z-index: 100;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  white-space: nowrap;
+  pointer-events: none
+}
+
 .years {
   display: grid;
   grid-template-columns: 1fr auto 1fr;

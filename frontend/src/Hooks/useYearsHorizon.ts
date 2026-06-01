@@ -5,17 +5,14 @@ type Year = {
   label: string;
 };
 
+const START_YEAR = 2020;
+const END_YEAR = 2030;
+
 const generateYears = (): Year[] => {
-  const currentYear = new Date().getFullYear();
   const years: Year[] = [];
-  
-  for (let year = 2020; year <= 2030; year++) {
-    years.push({ 
-      value: year.toString(), 
-      label: year.toString() 
-    });
+  for (let year = START_YEAR; year <= END_YEAR; year++) {
+    years.push({ value: year.toString(), label: year.toString() });
   }
-  
   return years;
 };
 
@@ -29,7 +26,6 @@ export function useYearsHorizon() {
   useEffect(() => {
     const fetchYears = async () => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 300));
         setYears(mockYears);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
