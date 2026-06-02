@@ -6,20 +6,10 @@ export type Year = {
 };
 
 const START_YEAR = 2019;
-const END_YEAR = 2023;
+const END_YEAR = 2022;
 
-const generateYears = (): Year[] => {
-  const years: Year[] = [];
-  for (let year = START_YEAR; year <= END_YEAR; year++) {
-    years.push({ value: year.toString(), label: year.toString() });
-  }
-  return years;
-};
-
-const mockYears: Year[] = generateYears();
-
-export function useYearsHistory() {
-  const [yearsHistory, setYears] = useState<Year[]>([]);
+export function useYearsHistoryFrom() {
+  const [years, setYears] = useState<Year[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +17,11 @@ export function useYearsHistory() {
     const fetchYears = async () => {
       try {
         await new Promise(resolve => setTimeout(resolve, 300));
-        setYears(mockYears);
+        const years: Year[] = [];
+        for (let year = START_YEAR; year <= END_YEAR; year++) {
+          years.push({ value: year.toString(), label: year.toString() });
+        }
+        setYears(years);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
       } finally {
@@ -38,5 +32,5 @@ export function useYearsHistory() {
     fetchYears();
   }, []);
 
-  return { yearsHistory, loading, error };
+  return { years, loading, error };
 }

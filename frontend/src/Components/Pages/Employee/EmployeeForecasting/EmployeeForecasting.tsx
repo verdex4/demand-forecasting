@@ -3,7 +3,8 @@ import styles from './Styles.module.scss';
 
 import { useSpecialties } from "@/Hooks/useSpecialties";
 import { useYearsHorizon } from "@/Hooks/useYearsHorizon";
-import { useYearsHistory } from "@/Hooks/useYearsHistory";
+import { useYearsHistoryFrom } from "@/Hooks/useYearsHistoryFrom";
+import { useYearsHistoryTo } from "@/Hooks/useYearsHistoryTo";
 
 import { Button } from "@/Components/UI/Button";
 import { useReportGeneration } from "@/Hooks/useReportGeneration";
@@ -23,10 +24,16 @@ function EmployeeForecastingComponent(): JSX.Element {
   } = useYearsHorizon();
 
   const {
-    yearsHistory,
-    loading: loadingHistory,
-    error: errorHistory
-  } = useYearsHistory();
+    years: yearsHistoryFrom,
+    loading: loadingHistoryFrom,
+    error: errorHistoryFrom
+  } = useYearsHistoryFrom();
+
+  const {
+    years: yearsHistoryTo,
+    loading: loadingHistoryTo,
+    error: errorHistoryTo
+  } = useYearsHistoryTo();
 
   const {
     isLoading: isReportLoading,
@@ -61,10 +68,10 @@ function EmployeeForecastingComponent(): JSX.Element {
   }, [yearToHistory, yearsHorizon]);
 
   const yearsHistoryToOptions = useMemo(() => {
-    if (!yearFromHistory) return yearsHistory;
+    if (!yearFromHistory) return yearsHistoryTo;
     const fromNum = Number(yearFromHistory);
-    return yearsHistory.filter((y) => Number(y.value) >= fromNum);
-  }, [yearFromHistory, yearsHistory]);
+    return yearsHistoryTo.filter((y) => Number(y.value) > fromNum);
+  }, [yearFromHistory, yearsHistoryTo]);
 
   const yearsHorizonToOptions = useMemo(() => {
     let options = yearsHorizon;
@@ -181,7 +188,7 @@ function EmployeeForecastingComponent(): JSX.Element {
     resetReportState();
   };
 
-  if (loadingSpec || loadingHorizon || loadingHistory) {
+  if (loadingSpec || loadingHorizon || loadingHistoryFrom || loadingHistoryTo) {
     return <div>Загрузка...</div>;
   }
 
@@ -193,8 +200,12 @@ function EmployeeForecastingComponent(): JSX.Element {
     return <div>Ошибка: {errorHorizon}</div>;
   }
 
-  if (errorHistory) {
-    return <div>Ошибка: {errorHistory}</div>;
+  if (errorHistoryFrom) {
+    return <div>Ошибка: {errorHistoryFrom}</div>;
+  }
+
+  if (errorHistoryTo) {
+    return <div>Ошибка: {errorHistoryTo}</div>;
   }
 
   return (
@@ -326,7 +337,7 @@ function EmployeeForecastingComponent(): JSX.Element {
                   Начальный год
                 </option>
 
-                {yearsHistory.map((year) => (
+                {yearsHistoryFrom.map((year) => (
                   <option
                     key={year.value}
                     value={year.value}
