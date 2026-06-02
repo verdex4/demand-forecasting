@@ -364,7 +364,3 @@ async def _forecast_exp_smoothing(df: pd.DataFrame, forecast_range: Tuple[int, i
     result_df = pd.concat([df] + new_rows, ignore_index=True)
     result_df = result_df.sort_values(["specialty_id", "year"])
     return result_df
-
-if __name__ == "__main__":
-    df = asyncio.run(make_forecast("all", "exponential_smoothing", (2019, 2023), (2024, 2026)))
-    print(df[df["specialty_id"] == 113])

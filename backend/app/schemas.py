@@ -132,6 +132,16 @@ class ReportCreate(BaseModel):
     forecast_range: Tuple[int, int]
     method: str
 
-class ReportOut(BaseModel):
+class ReportCreateOut(BaseModel):
     success: bool
     report_url: HttpUrl
+
+class ReportOut(BaseModel):
+    id: int
+    specialty_id: int
+    specialty_full_name: str
+    method: str
+    start_year: int
+    current_year: int
+    end_year: int
+    url: HttpUrl

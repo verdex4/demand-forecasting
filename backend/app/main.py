@@ -9,9 +9,20 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from app.settings import STATIC_DIR, TEMPLATES_DIR, REPORTS_DIR
 from fastapi.middleware.cors import CORSMiddleware
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from app.services.report_cleanup import cleanup_reports
+import logging
+
+scheduler = AsyncIOScheduler()
+logging.basicConfig(level=logging.INFO, format='%(filename)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # добавляем задачу очистки лишних отчетов каждые 5 минут (т.к. приложение часто запускается ненадолго)
+    scheduler.add_job(cleanup_reports, "interval", minutes=5)
+    scheduler.start()
+
     # создаем таблицы
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -22,13 +33,16 @@ async def lifespan(app: FastAPI):
         is_empty = result.scalar_one_or_none() is None
 
         if is_empty:
-            print("База данных пуста. Импортируем данные из Excel...")
+            logger.info("База данных пуста. Импортируем данные из Excel...")
             await seed(async_session)
-            print("Импорт успешно завершен.")
+            logger.info("Импорт успешно завершен.")
         else:
-            print("База данных уже содержит данные. Пропуск импорта.")
+            logger.info("База данных уже содержит данные. Пропуск импорта.")
 
     yield
+
+    scheduler.shutdown()
+
     await engine.dispose()
 
 app = FastAPI(lifespan=lifespan)

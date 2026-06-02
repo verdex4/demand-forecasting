@@ -3,15 +3,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import base64
 import io
-from app.settings import BASE_DIR
+from app.settings import REPORTS_DIR, REPORTS_URL
 from typing import Tuple
-import asyncio
 from app.database import fetch_query_to_df
 from datetime import date
+from app.models import Report
+from sqlalchemy.ext.asyncio import AsyncSession
 
-async def make_report(df: pd.DataFrame, input_specialty: str, history_range: Tuple[int, int], forecast_range: Tuple[int, int], method: str):
+async def make_report(df: pd.DataFrame, input_specialty: str, method: str, history_range: Tuple[int, int], forecast_range: Tuple[int, int], session: AsyncSession):
     """Создаёт HTML-отчёт о востребованности специальности и сохраняет в backend/data/reports."""
     # отображаем метод в читаемом формате
+    old_method = method
     if method.startswith("sma_"):
         y = int(method[4:])
         if y == 1:
@@ -108,14 +110,28 @@ async def make_report(df: pd.DataFrame, input_specialty: str, history_range: Tup
     )
     
     # определяем название и путь файла
-    filename = f"{_rus_to_eng(specialty_name)}.html"
-    output_path = f"{BASE_DIR}/backend/data/reports/{filename}"
+    filename = f"{_rus_to_eng(specialty_name)}-{old_method}-{start_year}-{cur_year}-{cur_year + 1}-{end_year}.html"
+    file_path = f"{REPORTS_DIR}/{filename}"
+    url_path = f"{REPORTS_URL}/{filename}"
 
-    # сохраняем отчет
-    with open(output_path, 'w', encoding='utf-8') as f:
+    # сохраняем отчет в файл
+    with open(file_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
+
+    # создаем запись в БД
+    report = Report(
+        specialty_id=specialty_id,
+        method=old_method,
+        start_year=start_year,
+        current_year=cur_year,
+        end_year=end_year,
+        url=url_path
+    )
+    session.add(report)
+
+    await session.commit()
     
-    return filename
+    return url_path
 
 def _plot_to_base64():
     """Сохраняет matplotlib-график в виде base64-строки."""
@@ -356,11 +372,3 @@ def _make_html_content(**params) -> str:
     </body>
     </html>
     """
-
-async def main():
-    from app.services.forecast import make_forecast
-    df = await make_forecast("all", "sma_3", (2019, 2023), (2024, 2026))
-    res = await make_report(df, "39.03.01 Социология", (2019, 2023), (2024, 2026), "sma_3")
-
-if __name__ == "__main__":
-    asyncio.run(main())
