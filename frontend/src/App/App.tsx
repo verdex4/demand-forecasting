@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import '../Styles/index.scss';
 import './Styles.scss';
 import { EmployeeHelp } from '@/Components/Pages/Employee/EmployeeHelp';
+import { EmployeeReports } from '@/Components/Pages/Employee/EmployeeReports';
 
 function AppComponent() {
   return (
@@ -15,6 +16,7 @@ function AppComponent() {
           <Route index element={<Navigate to="forecasting" replace />} />
           <Route path="forecasting" element={<EmployeeForecasting/>} />
           <Route path="help" element={<EmployeeHelp/>} />
+          <Route path="reports" element={<EmployeeReports/>} />
         </Route>
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>

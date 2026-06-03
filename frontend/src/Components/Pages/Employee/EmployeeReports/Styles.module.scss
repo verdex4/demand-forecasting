@@ -1,0 +1,78 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 700;
+  color: white;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.container {
+  padding: clamp(16px, 3vw, 28px);
+
+  border-radius: var(--radius-lg);
+
+  background: var(--bg-card);
+
+  border: 1px solid var(--border-primary);
+
+  backdrop-filter: blur(12px);
+}
+
+.empty {
+  text-align: center;
+
+  color: var(--text-muted);
+
+  padding: 40px 0;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.tableWrapper table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tableWrapper th,
+.tableWrapper td {
+  padding: 14px;
+
+  text-align: left;
+
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.tableWrapper th {
+  color: white;
+}
+
+.tableWrapper td {
+  color: var(--text-secondary);
+}
+
+.tableWrapper a {
+  color: var(--blue-primary);
+
+  text-decoration: none;
+}
+
+.tableWrapper a:hover {
+  text-decoration: underline;
+}
