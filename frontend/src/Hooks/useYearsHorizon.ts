@@ -6,7 +6,6 @@ type Year = {
 };
 
 const generateYears = (): Year[] => {
-  const currentYear = new Date().getFullYear();
   const years: Year[] = [];
   
   for (let year = 2020; year <= 2030; year++) {
