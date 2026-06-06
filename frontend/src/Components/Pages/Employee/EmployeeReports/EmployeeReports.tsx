@@ -63,7 +63,7 @@ function EmployeeReportsComponent(): JSX.Element {
                     </td>
 
                     <td>
-                      {report.current_year} — {report.end_year}
+                      {report.current_year + 1} — {report.end_year}
                     </td>
 
                     <td>

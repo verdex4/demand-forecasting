@@ -121,7 +121,7 @@ async def make_report(df: pd.DataFrame, input_specialty: str, method: str, histo
     # создаем запись в БД
     report = Report(
         specialty_id=specialty_id,
-        method=old_method,
+        method=method,
         start_year=start_year,
         current_year=cur_year,
         end_year=end_year,
