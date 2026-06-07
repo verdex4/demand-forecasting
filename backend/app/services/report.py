@@ -74,9 +74,9 @@ async def make_report(df: pd.DataFrame, input_specialty: str, method: str, histo
         df_table.loc[row, "Динамика за год"] = spec_cur[ind].values[0] - spec_hist[spec_hist["year"] == cur_year - 1][ind].values[0]
         df_table.loc[row, f"Прогноз ({end_year} год)"] = spec_fut[spec_fut["year"] == end_year][ind].values[0]
         place = _get_place(df_cur, specialty_id, ind)
-        df_table.loc[row, "Место в вузе"] = f"{place[0]} из {place[1]}"
+        df_table.loc[row, "Место в вузе"] = place
         trend = _get_trend(spec_cur[ind].values[0], spec_last[ind].values[0], end_year - cur_year)
-        df_table.loc[row, "Статус тренда"] = f"{trend[0]} ({trend[1]})"
+        df_table.loc[row, "Статус тренда"] = trend
 
     # форматируем таблицу
     html_table = _format_html_table(df_table)
@@ -255,25 +255,35 @@ def _define_stability(df: pd.DataFrame, specialty_id: int) -> Tuple[str, Tuple[i
         return "Средняя", place_res
     return "Низкая", place_res
 
-def _get_place(df: pd.DataFrame, specialty_id: int, indicator: str) -> Tuple[int, int]:
+def _get_place(df: pd.DataFrame, specialty_id: int, indicator: str) -> str:
     df = df.copy()
     df = df.sort_values(indicator, ascending=False).reset_index(drop=True)
     place = df[df["specialty_id"] == specialty_id].index[0] + 1
     all_places = df.shape[0]
-    return place, all_places
+    return f"{place}&nbsp;из&nbsp;{all_places}"
 
-def _get_trend(cur_val: float, forecast_val: float, years: int) -> Tuple[str, str]:
-    # считаем среднегодовой прирост в %
+def _get_trend(cur_val: float, forecast_val: float, years: int) -> str:
+    # считаем среднегодовой прирост в %, обрабатывая крайние случаи
+    eps = 0.0001
+    if -eps < cur_val < eps and -eps < forecast_val < eps:
+        return f"Стабилен<br>(0% г/г)"
+    if -eps < cur_val < eps and forecast_val < -eps:
+        return "Падение"
+    if -eps < cur_val < eps and forecast_val > eps:
+        return "Рост"
+    
     cagr = ((forecast_val / cur_val) ** (1 / years) - 1) * 100
 
     if cagr < -5:
-        return "Падение", f"{round(cagr, 1)}% г/г"
-    if -5 <= cagr < 0:
-        return "Стабилен", f"{round(cagr, 1)}% г/г"
-    if 0 <= cagr < 5:
-        return "Стабилен", f"+{round(cagr, 1)}% г/г"
+        return f"Падение<br>({round(cagr, 1)}% г/г)"
+    if -5 <= cagr < -0.05:
+        return f"Стабилен<br>({round(cagr, 1)}% г/г)"
+    if -0.05 <= cagr < 0.05:
+        return f"Стабилен<br>(0% г/г)"
+    if 0.05 <= cagr < 5:
+        return f"Стабилен<br>(+{round(cagr, 1)}% г/г)"
     
-    return "Рост", f"+{round(cagr, 1)}% г/г"
+    return f"Рост<br>(+{round(cagr, 1)}% г/г)"
 
 def _format_html_table(df: pd.DataFrame) -> str:
     for col in range(3):
@@ -307,7 +317,7 @@ def _format_html_table(df: pd.DataFrame) -> str:
     </style>
     """
 
-    return html_style + df.to_html(classes='centered-table', justify='center')
+    return html_style + df.to_html(classes='centered-table', justify='center', escape=False)
 
 def _make_html_content(**params) -> str:
     return f"""
