@@ -37,6 +37,13 @@ async def make_report(df: pd.DataFrame, input_specialty: str, method: str, histo
     start_year = history_range[0]
     cur_year = history_range[1]
     end_year = forecast_range[1]
+
+    # если уже создан отчет - возвращаем его URL
+    existing = await fetch_query_to_df(
+        f"SELECT url FROM reports WHERE specialty_id = {specialty_id} AND method = '{method}' AND start_year = {start_year} AND current_year = {cur_year} AND end_year = {end_year}"
+    )
+    if not existing.empty:
+        return existing["url"].values[0]
     
     # находим данные по всем специальностям в текущем году
     df_cur = df[df["year"] == cur_year]

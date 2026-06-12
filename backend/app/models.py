@@ -1,5 +1,5 @@
 from typing import List
-from sqlalchemy import String, Integer, ForeignKey, BigInteger
+from sqlalchemy import String, Integer, ForeignKey, BigInteger, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -76,6 +76,7 @@ class ApplicationStats(Base):
 # Таблица 7. Отчёты
 class Report(Base):
     __tablename__ = "reports"
+    
     id: Mapped[int] = mapped_column(primary_key=True)
     specialty_id: Mapped[int] = mapped_column(ForeignKey("specialties.id"))
     method: Mapped[str] = mapped_column(String(100))
@@ -83,3 +84,14 @@ class Report(Base):
     current_year: Mapped[int] = mapped_column(Integer)
     end_year: Mapped[int] = mapped_column(Integer)
     url: Mapped[str] = mapped_column(String(512))
+
+    __table_args__ = (
+        UniqueConstraint(
+            "specialty_id", 
+            "method", 
+            "start_year", 
+            "current_year", 
+            "end_year", 
+            name="uq_report_specialty_method_years"
+        ),
+    )
