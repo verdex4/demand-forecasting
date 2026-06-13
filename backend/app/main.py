@@ -4,7 +4,7 @@ from app.database import engine, Base, AsyncSessionLocal
 from contextlib import asynccontextmanager
 import app.models as models
 from app.seed import seed
-from app.api.v1 import application_stats, specialties, reports
+from app.api.v1 import application_stats, specialties, reports, model_errors
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from app.settings import STATIC_DIR, TEMPLATES_DIR, REPORTS_DIR
@@ -76,3 +76,4 @@ async def applicant(request: Request):
 app.include_router(application_stats.router)
 app.include_router(specialties.router)
 app.include_router(reports.router)
+app.include_router(model_errors.router)

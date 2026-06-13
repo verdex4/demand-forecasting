@@ -28,7 +28,7 @@ async def get_reports(db: AsyncSession = Depends(get_db)):
 @router.post("/", response_model=ReportCreateOut)
 async def create_report(request: Request, params: ReportCreate, db: AsyncSession = Depends(get_db)):
     try:
-        df = await make_forecast("all", params.method, params.history_range, params.forecast_range)
+        df = await make_forecast(params.method, params.history_range, params.forecast_range)
         async with AsyncSessionLocal() as async_session:
             report_url = await make_report(
                 df,

@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from app.models import Subject, ExamSet, Specialty, ApplicationStats, BirthRate, ExamStats, ExamSetItem, SpecialtyExamSet
+from app.models import Subject, ExamSet, Specialty, ApplicationStats, BirthRate, ExamStats, ExamSetItem, SpecialtyExamSet, ForecastMethod
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Tuple, List
 
@@ -38,6 +38,8 @@ async def seed(session: AsyncSession) -> None:
     await _fill_subjects_sets_apps(df_apps, session)
     await _fill_births(df_births, session)
     await _fill_exams(df_exams, session)
+
+    await _fill_forecast_methods(df_apps, session)
 
 def _transform_columns(df) -> pd.DataFrame:
     """Убирает NaN и Unnamed из заголовков (1 и 2 строки в Excel)."""
@@ -188,3 +190,47 @@ async def _fill_exams(df, session: AsyncSession):
             await session.flush()
 
     await session.commit()
+
+def _get_min_max_years(df_apps):
+    years = set()
+    for col_idx in range(3, len(df_apps.columns), 3):
+        # год - первое значение в заголовке
+        year = int(df_apps.columns[col_idx][0])
+        years.add(year)
+
+    return min(years), max(years)
+
+async def _fill_forecast_methods(df_apps, session: AsyncSession):
+    min_year, max_year = _get_min_max_years(df_apps)
+
+    # SMA
+    for window in range(1, (max_year - min_year + 1) + 1):
+        slug = f"sma_{window}"
+        if window % 100 in (11, 12, 13, 14):
+            name = f"Скользящее среднее за {window} лет"
+        elif window % 10 == 1:
+            name = f"Скользящее среднее за {window} год"
+        elif window % 10 in (2, 3, 4):
+            name = f"Скользящее среднее за {window} года"
+        else:
+            name = f"Скользящее среднее за {window} лет"
+        method = ForecastMethod(slug=slug, name=name)
+        session.add(method)
+        await session.flush()
+    
+    # Демографический метод
+    slug = "demographic"
+    name = "Демографический метод"
+    method = ForecastMethod(slug=slug, name=name)
+    session.add(method)
+    await session.flush()
+
+    # Экспоненциальное сглаживание
+    slug = "exponential_smoothing"
+    name = "Экспоненциальное сглаживание"
+    method = ForecastMethod(slug=slug, name=name)
+    session.add(method)
+    await session.flush()
+
+    await session.commit()
+    

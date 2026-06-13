@@ -27,3 +27,8 @@ async def fetch_query_to_df(query_str, params=None) -> pd.DataFrame:
         df = pd.DataFrame(rows, columns=columns)
         
     return df
+
+async def fetch_query_to_scalar(query_str, params=None):
+    async with engine.connect() as conn:
+        result = await conn.execute(text(query_str), params or {})
+        return result.scalar()

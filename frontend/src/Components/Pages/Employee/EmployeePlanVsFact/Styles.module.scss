@@ -1,0 +1,131 @@
+// Граница между группами методов
+.groupHeaderRow {
+  td {
+    border-top: 2px solid var(--border-primary, rgba(255, 255, 255, 0.1)) !important;
+  }
+}
+
+// Переопределение стилей Ant Design под темную тему
+.antTable {
+  :global {
+    .ant-table {
+      background: transparent;
+      color: var(--text-primary, #fff);
+    }
+
+    .ant-table-thead > tr > th {
+      background: transparent;
+      color: var(--text-primary, #fff);
+      border-bottom: 2px solid var(--border-primary, rgba(255, 255, 255, 0.15));
+      font-weight: 600;
+      border-right: none !important;
+      border-left: none !important;    
+    }
+
+    // ✅ Нижний ряд заголовков (годы) — убираем двойную границу снизу,
+    // оставляем только у последнего ряда thead
+    .ant-table-thead > tr:last-child > th {
+      border-bottom: 1px solid var(--border-primary, rgba(255, 255, 255, 0.15));
+    }
+
+    // ✅ Верхний ряд заголовков ("Метод", "Показатель", "Год") —
+    // нижняя граница только у ячеек без children (они автоматически растянутся)
+    .ant-table-thead > tr:first-child > th {
+      border-bottom: 1px solid var(--border-primary, rgba(255, 255, 255, 0.08));
+    }
+
+    .ant-table-tbody > tr > td {
+      background: transparent;
+      border-bottom: 1px solid var(--border-primary, rgba(255, 255, 255, 0.08));
+      color: var(--text-primary, #fff);
+      background: transparent !important;
+    }
+
+    .ant-table-tbody > tr:hover > td {
+      background: rgba(255, 255, 255, 0.04) !important;
+    }
+    .ant-table-tbody > tr.ant-table-row-hover > td {
+      background: rgba(255, 255, 255, 0.04) !important;
+    }
+
+    .ant-table-cell-fix-left,
+    [rowspan] {
+      border-right: 2px solid var(--border-primary, rgba(255, 255, 255, 0.15));
+    }
+  }
+}
+
+.groupHoverRow,
+.singleRowHover {
+  :global(.ant-table-cell) {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.05)) !important;
+  }
+}
+
+.metricNameColumn {
+  :global {
+    .ant-table-cell {
+      padding-left: 24px !important;
+    }
+  }
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 700;
+  color: white;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+
+  padding: clamp(16px, 3vw, 28px);
+
+  border-radius: var(--radius-lg);
+
+  background: var(--bg-card);
+
+  border: 1px solid var(--border-primary);
+
+  backdrop-filter: blur(12px);
+}
+
+.container section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.container h2 {
+  color: white;
+  font-size: 22px;
+}
+
+.container p,
+.container li {
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.container ul {
+  padding-left: 20px;
+}

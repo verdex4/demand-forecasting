@@ -1,5 +1,4 @@
 from pydantic import BaseModel, ConfigDict, HttpUrl, field_validator
-from typing import List, Optional, Tuple
 
 
 # 1. СХЕМЫ ДЛЯ ПРЕДМЕТОВ (Subjects)
@@ -26,13 +25,13 @@ class ExamSetBase(BaseModel):
 class ExamSetOut(ExamSetBase):
     """Схема для вывода комплекта ЕГЭ с предметами."""
     id: int
-    subjects: List[SubjectOut]
+    subjects: list[SubjectOut]
     
     model_config = ConfigDict(from_attributes=True)
 
 class ExamSetCreate(ExamSetBase):
     """Схема для создания нового комплекта ЕГЭ."""
-    subject_ids: List[int]
+    subject_ids: list[int]
 
 
 # 3. СХЕМЫ ДЛЯ СТАТИСТИКИ ПО ЗАЯВЛЕНИЯМ (ApplicationStats)
@@ -109,27 +108,27 @@ class SpecialtyShortOut(SpecialtyBase):
 class SpecialtyOut(SpecialtyBase):
     """Схема для вывода специальности с комплектами и заявлениями по годам."""
     id: int
-    exam_sets: List[ExamSetOut]
-    application_stats: List[ApplicationStatsOut]
+    exam_sets: list[ExamSetOut]
+    application_stats: list[ApplicationStatsOut]
     
     model_config = ConfigDict(from_attributes=True)
     
 
 class SpecialtyCreate(SpecialtyBase):
     """Схема для создания новой специальности."""
-    exam_set_ids: List[int] # IDs комплектов ЕГЭ
+    exam_set_ids: list[int] # IDs комплектов ЕГЭ
 
 class SpecialtyUpdate(BaseModel):
     """Схема для обновления специальности."""
-    code: Optional[str] = None
-    name: Optional[str] = None
-    exam_set_ids: Optional[List[int]] = None
+    code: str | None = None
+    name: str | None = None
+    exam_set_ids: list[int] | None = None
 
 # СХЕМЫ ДЛЯ ОТЧЁТОВ
 class ReportCreate(BaseModel):
     input_specialty: str
-    history_range: Tuple[int, int]
-    forecast_range: Tuple[int, int]
+    history_range: tuple[int, int]
+    forecast_range: tuple[int, int]
     method: str
 
 class ReportCreateOut(BaseModel):
@@ -145,3 +144,11 @@ class ReportOut(BaseModel):
     current_year: int
     end_year: int
     url: HttpUrl
+
+# СХЕМЫ ДЛЯ ТЕСТИРОВАНИЯ МОДЕЛИ
+class TestIn(BaseModel):
+    methods: list[str]
+
+class TestOut(BaseModel):
+    method: str
+    metrics: list[dict[str, str | dict[int, float | None]]]

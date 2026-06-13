@@ -1,14 +1,14 @@
-import asyncio
 import pandas as pd
 import numpy as np
-from app.database import fetch_query_to_df
-from typing import Dict, Tuple, List, Union
+from app.database import fetch_query_to_df, fetch_query_to_scalar
+from app.services.utils import raise_error
 
-async def make_forecast(specialties_names: Union[List[str], str],
-                        method: str,
-                        history_range: Tuple[int, int],
-                        forecast_range: Tuple[int, int],
-                        weights: dict[str, float] | None = None) -> pd.DataFrame:
+async def make_forecast(
+    method: str,
+    history_range: tuple[int, int],
+    forecast_range: tuple[int, int],
+    weights: dict[str, float] | None = None
+) -> pd.DataFrame:
     """Прогнозирует востребованность специальностей с помощью указанного метода.
 
     Доступные методы:
@@ -17,7 +17,6 @@ async def make_forecast(specialties_names: Union[List[str], str],
     * exponential_smoothing - экспоненциальное сглаживание
 
     Args:
-        specialties_names (Union[List[str], str]): Названия специальностей или "all"
         method (str): Метод прогнозирования
         history_range (Tuple[int, int]): Диапазон исторических данных
         forecast_range (Tuple[int, int]): Диапазон прогнозирования
@@ -26,32 +25,29 @@ async def make_forecast(specialties_names: Union[List[str], str],
     Returns:
         pd.DataFrame: Датафрейм с прогнозными данными
     """
-    # получаем данные
-    if specialties_names == "all":
-        spec_df = await fetch_query_to_df(
-            "SELECT name FROM public.specialties"
-        )
-        specialties_names = spec_df["name"].tolist()
-       
     query = """
         SELECT a.*
         FROM public.application_stats AS a
         JOIN public.specialties AS s ON a.specialty_id = s.id
         WHERE a.year BETWEEN :start_year AND :end_year
-        AND s.name = ANY(:specialties_names)
         ORDER BY a.specialty_id, a.year ASC;
     """
     df = await fetch_query_to_df(
         query,
-        params={"start_year": history_range[0], 
-                "end_year": history_range[1],
-                "specialties_names": specialties_names}
+        params={"start_year": history_range[0], "end_year": history_range[1]}
     )
 
     df = df.dropna() # убираем строки хотя бы с одним пропуском
 
     # выбираем нужную функцию для прогнозирования
     method = method.lower()
+    method_slug = await fetch_query_to_scalar(
+        "SELECT slug FROM public.forecast_methods WHERE slug = :slug",
+        params={"slug": method}
+    )
+    if not method_slug:
+        available = await fetch_query_to_df("SELECT slug FROM public.forecast_methods")
+        raise_error(f"Метода прогнозирования {method} не существует, доступные: {', '.join(available['slug'].values)}")
     params = {}
     _forecast_func = None
     if method.startswith("sma_"):
@@ -62,9 +58,9 @@ async def make_forecast(specialties_names: Union[List[str], str],
     if method == "exponential_smoothing":
         params["history_range"] = history_range
         _forecast_func = _forecast_exp_smoothing
-
-    if _forecast_func is None:
-        raise ValueError(f"Метода прогнозирования {method} не существует, смотри доступные методы в описании к функции.")
+    
+    if not _forecast_func:
+        raise_error("Internal error: функция прогнозирования не найдена", status_code=500)
 
     # прогнозируем ключевые показатели: кол-во заявлений, КЦП, кол-во зачисленных, конкурс
     df = await _forecast_func(df, forecast_range, **params)
@@ -76,7 +72,7 @@ async def make_forecast(specialties_names: Union[List[str], str],
     return df
 
 
-def _calc_demand(df: pd.DataFrame, weights: Dict[str, float] | None = None) -> pd.DataFrame:
+def _calc_demand(df: pd.DataFrame, weights: dict[str, float] | None = None) -> pd.DataFrame:
     """Считает показатели востребованности специальности.
 
     D = (w1 * D1 + w2 * D2 + w3 * D3 + w4 * D4) * exp(w5 * D5), где
@@ -265,10 +261,10 @@ def _normalize_diff(x: pd.Series, mean, k=2) -> np.ndarray:
                     0, 
                     x**k / (x**k + mean**k))
 
-async def _forecast_sma(df: pd.DataFrame, forecast_range: Tuple[int, int], sma_window: int, indicators=["applications", "kcp", "enrolled"]) -> pd.DataFrame:
+async def _forecast_sma(df: pd.DataFrame, forecast_range: tuple[int, int], sma_window: int, indicators=["applications", "kcp", "enrolled"]) -> pd.DataFrame:
     """Прогнозирует ключевые показатели с помощью взятия среднего из истории."""
     if df[df["year"] == forecast_range[0] - sma_window].empty:
-        raise IndexError(f"Введено слишком большое значение sma_window.")
+        raise_error(f"Введено слишком большое значение sma_window: {sma_window}.")
 
     for year in range(forecast_range[0], forecast_range[1] + 1):
         window_data = df[df["year"].between(year - sma_window, year - 1)]
@@ -284,7 +280,7 @@ async def _forecast_sma(df: pd.DataFrame, forecast_range: Tuple[int, int], sma_w
 
     return df
 
-async def _forecast_demographic(df: pd.DataFrame, forecast_range: Tuple[int, int], indicators=["applications", "kcp", "enrolled"]) -> pd.DataFrame:
+async def _forecast_demographic(df: pd.DataFrame, forecast_range: tuple[int, int], indicators=["applications", "kcp", "enrolled"]) -> pd.DataFrame:
     # считаем, что поступают в возрасте 18 лет
     start_year = forecast_range[0] - 19 # для сравнения с прошлым годом
     end_year = forecast_range[1] - 18
@@ -314,7 +310,7 @@ async def _forecast_demographic(df: pd.DataFrame, forecast_range: Tuple[int, int
     result_df = result_df.sort_values(["specialty_id", "year"])
     return result_df
 
-async def _forecast_exp_smoothing(df: pd.DataFrame, forecast_range: Tuple[int, int], history_range: Tuple[int, int], indicators: List[str] = ["applications", "kcp", "enrolled"], alpha: float = 0.7) -> pd.DataFrame:
+async def _forecast_exp_smoothing(df: pd.DataFrame, forecast_range: tuple[int, int], history_range: tuple[int, int], indicators: list[str] = ["applications", "kcp", "enrolled"], alpha: float = 0.7) -> pd.DataFrame:
     """Предсказывает основные показатели методом экспоненциального сглаживания.
 
     Формула: Ŷ_t = α * Y_{t-1} + (1 - α) * Ŷ_{t-1}, где 
