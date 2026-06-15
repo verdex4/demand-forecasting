@@ -83,7 +83,7 @@ class Report(Base):
     
     id: Mapped[int] = mapped_column(primary_key=True)
     specialty_id: Mapped[int] = mapped_column(ForeignKey("specialties.id"))
-    method: Mapped[str] = mapped_column(String(100))
+    method_id: Mapped[int] = mapped_column(ForeignKey("forecast_methods.id"))
     start_year: Mapped[int] = mapped_column(Integer)
     current_year: Mapped[int] = mapped_column(Integer)
     end_year: Mapped[int] = mapped_column(Integer)
@@ -92,7 +92,7 @@ class Report(Base):
     __table_args__ = (
         UniqueConstraint(
             "specialty_id", 
-            "method", 
+            "method_id", 
             "start_year", 
             "current_year", 
             "end_year", 

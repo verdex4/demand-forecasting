@@ -12,20 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 async def make_report(df: pd.DataFrame, input_specialty: str, method: str, history_range: Tuple[int, int], forecast_range: Tuple[int, int], session: AsyncSession):
     """Создаёт HTML-отчёт о востребованности специальности и сохраняет в backend/data/reports."""
-    # отображаем метод в читаемом формате
-    old_method = method
-    if method.startswith("sma_"):
-        y = int(method[4:])
-        if y == 1:
-            method = "Скользящее среднее за 1 год"
-        elif 2 <= y <= 4:
-            method = f"Скользящее среднее за {y} года"
-        else:
-            method = f"Скользящее среднее за {y} лет"
-    elif method == "demographic":
-        method = "Демографический"
-    elif method == "exponential_smoothing":
-        method = "Экспоненциальное сглаживание"
+    method_df = await fetch_query_to_df("SELECT id, slug, name FROM public.forecast_methods WHERE name = :name", {"name": method})
+    method_id = method_df["id"].values[0]
+    method_slug = method_df["slug"].values[0]
+    method_name = method_df["name"].values[0]
     
     # парсим ввод специальности
     code = input_specialty.split(" ")[0]
@@ -40,7 +30,7 @@ async def make_report(df: pd.DataFrame, input_specialty: str, method: str, histo
 
     # если уже создан отчет - возвращаем его URL
     existing = await fetch_query_to_df(
-        f"SELECT url FROM reports WHERE specialty_id = {specialty_id} AND method = '{method}' AND start_year = {start_year} AND current_year = {cur_year} AND end_year = {end_year}"
+        f"SELECT url FROM reports WHERE specialty_id = {specialty_id} AND method_id = '{method_id}' AND start_year = {start_year} AND current_year = {cur_year} AND end_year = {end_year}"
     )
     if not existing.empty:
         return existing["url"].values[0]
@@ -105,7 +95,7 @@ async def make_report(df: pd.DataFrame, input_specialty: str, method: str, histo
     # создаем html-контент
     html_content = _make_html_content(
         specialty_name=specialty_name,
-        method=method,
+        method_name=method_name,
         history_data=history_data,
         forecast_data=forecast_data,
         cur_demand=cur_demand,
@@ -117,7 +107,7 @@ async def make_report(df: pd.DataFrame, input_specialty: str, method: str, histo
     )
     
     # определяем название и путь файла
-    filename = f"{_rus_to_eng(specialty_name)}-{old_method}-{start_year}-{cur_year}-{cur_year + 1}-{end_year}.html"
+    filename = f"{_rus_to_eng(specialty_name)}-{method_slug}-{start_year}-{cur_year}-{cur_year + 1}-{end_year}.html"
     file_path = f"{REPORTS_DIR}/{filename}"
     url_path = f"{REPORTS_URL}/{filename}"
 
@@ -128,7 +118,7 @@ async def make_report(df: pd.DataFrame, input_specialty: str, method: str, histo
     # создаем запись в БД
     report = Report(
         specialty_id=specialty_id,
-        method=method,
+        method_id=method_id,
         start_year=start_year,
         current_year=cur_year,
         end_year=end_year,
@@ -348,7 +338,7 @@ def _make_html_content(**params) -> str:
         <ul>
             <li>Исторические данные: {params["history_data"]}</li>
             <li>Прогнозные данные: {params["forecast_data"]}</li>
-            <li>Метод прогнозирования: {params["method"]}</li>
+            <li>Метод прогнозирования: {params["method_name"]}</li>
         </ul>
 
         <h3>Итоговый показатель востребованности</h3>

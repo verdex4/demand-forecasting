@@ -27,6 +27,14 @@ async def get_reports(db: AsyncSession = Depends(get_db)):
 # создать отчёт
 @router.post("/", response_model=ReportCreateOut)
 async def create_report(request: Request, params: ReportCreate, db: AsyncSession = Depends(get_db)):
+    """Создаёт отчёт по указанным параметрам.
+    
+    Доступные методы:
+    * Последнее значение
+    * Скользящее среднее за n лет (года, год)
+    * Демографический метод (поправка на рождаемость)
+    * Экспоненциальное сглаживание
+    """
     try:
         df = await make_forecast(params.method, params.history_range, params.forecast_range)
         async with AsyncSessionLocal() as async_session:

@@ -10,7 +10,7 @@ async def get_model_errors(methods: list[str] | None = None):
         methods - список методов прогнозирования (по умолчанию все)
     """
     df_methods = await fetch_query_to_df("SELECT slug, name FROM public.forecast_methods")
-    available = df_methods["slug"].tolist()
+    available = df_methods["name"].tolist()
     if not methods:
         methods = available
     else:
@@ -36,10 +36,9 @@ async def get_model_errors(methods: list[str] | None = None):
             {"name": "КЦП", "errors": {}},
             {"name": "Зачисленные", "errors": {}},
         ]
-        # нужно как минимум 2 года истории для расчета прогноза
-        for test_year in range(start + 2, end + 1):
+        for test_year in range(start + 1, end + 1):
             # если метод - SMA, нужно проверить размер окна
-            if method.startswith("sma_") and int(method[4:]) > test_year - start:
+            if method.startswith("Скользящее среднее") and int(method.split(" ")[-2]) > test_year - start:
                 for m in metrics:
                     m["errors"][test_year] = None
                 continue
@@ -79,7 +78,6 @@ async def get_model_errors(methods: list[str] | None = None):
                         m["errors"][test_year] = round(get_wmape(col), 1)
                         break
         
-        method_name = df_methods[df_methods["slug"] == method]["name"].iloc[0]
-        errors.append({"method": str(method_name), "metrics": metrics})
+        errors.append({"method": method, "metrics": metrics})
     
     return errors

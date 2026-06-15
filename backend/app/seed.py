@@ -203,8 +203,15 @@ def _get_min_max_years(df_apps):
 async def _fill_forecast_methods(df_apps, session: AsyncSession):
     min_year, max_year = _get_min_max_years(df_apps)
 
+    # Последнее значение
+    slug = "last"
+    name = "Последнее значение"
+    method = ForecastMethod(slug=slug, name=name)
+    session.add(method)
+    await session.flush()
+
     # SMA
-    for window in range(1, (max_year - min_year + 1) + 1):
+    for window in range(2, (max_year - min_year + 1) + 1):
         slug = f"sma_{window}"
         if window % 100 in (11, 12, 13, 14):
             name = f"Скользящее среднее за {window} лет"

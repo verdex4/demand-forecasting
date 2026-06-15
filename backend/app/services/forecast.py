@@ -11,13 +11,8 @@ async def make_forecast(
 ) -> pd.DataFrame:
     """Прогнозирует востребованность специальностей с помощью указанного метода.
 
-    Доступные методы:
-    * SMA_x - скользящее среднее за x лет
-    * demographic - демографический метод (поправка на рождаемость)
-    * exponential_smoothing - экспоненциальное сглаживание
-
     Args:
-        method (str): Метод прогнозирования
+        method (str): Название метода прогнозирования
         history_range (Tuple[int, int]): Диапазон исторических данных
         forecast_range (Tuple[int, int]): Диапазон прогнозирования
         weights (Dict[str, float] | None): Веса модели
@@ -40,29 +35,30 @@ async def make_forecast(
     df = df.dropna() # убираем строки хотя бы с одним пропуском
 
     # выбираем нужную функцию для прогнозирования
-    method = method.lower()
-    method_slug = await fetch_query_to_scalar(
-        "SELECT slug FROM public.forecast_methods WHERE slug = :slug",
-        params={"slug": method}
+    method_in_db = await fetch_query_to_scalar(
+        "SELECT name FROM public.forecast_methods WHERE name = :name",
+        params={"name": method}
     )
-    if not method_slug:
+    if not method_in_db:
         available = await fetch_query_to_df("SELECT slug FROM public.forecast_methods")
         raise_error(f"Метода прогнозирования {method} не существует, доступные: {', '.join(available['slug'].values)}")
     params = {}
     _forecast_func = None
-    if method.startswith("sma_"):
-        params["sma_window"] = int(method[4:])
+    if method.lower() == "последнее значение":
+        _forecast_func = _forecast_last
+    if method.lower().startswith("скользящее среднее за"):
+        params["sma_window"] = int(method.split(" ")[-2])
         _forecast_func = _forecast_sma
-    if method == "demographic":
+    if method.lower() == "демографический метод":
         _forecast_func = _forecast_demographic
-    if method == "exponential_smoothing":
+    if method.lower() == "экспоненциальное сглаживание":
         params["history_range"] = history_range
         _forecast_func = _forecast_exp_smoothing
     
     if not _forecast_func:
         raise_error("Internal error: функция прогнозирования не найдена", status_code=500)
-
-    # прогнозируем ключевые показатели: кол-во заявлений, КЦП, кол-во зачисленных, конкурс
+    
+    # прогнозируем ключевые показатели: кол-во заявлений, КЦП, кол-во зачисленных
     df = await _forecast_func(df, forecast_range, **params)
 
     # считаем показатели востребованности
@@ -260,6 +256,30 @@ def _normalize_diff(x: pd.Series, mean, k=2) -> np.ndarray:
     return np.where(x == 0, 
                     0, 
                     x**k / (x**k + mean**k))
+
+async def _forecast_last(df: pd.DataFrame, forecast_range: tuple[int, int], indicators=["applications", "kcp", "enrolled"]) -> pd.DataFrame:
+    """Прогнозирует ключевые показатели, дублируя показатели за прошлый год.
+    
+    Если количество прогнозных лет больше 1, показатели дублируются (всё время берутся показатели из последнего года истории).
+    """
+    forecast_df = df.groupby("specialty_id", as_index=False)[["specialty_id", "year"] + indicators].last()
+    forecast_df["year"] = forecast_df["year"] + 1
+    
+    new_rows = []
+    current_df = forecast_df.copy()
+
+    for year in range(forecast_range[0] + 1, forecast_range[1] + 1):
+        current_df = current_df.copy()
+        current_df["year"] = year
+        new_rows.append(current_df)
+
+    forecast_df = pd.concat([forecast_df] + new_rows, ignore_index=True)
+    forecast_df = forecast_df.sort_values(["specialty_id", "year"]).reset_index(drop=True)
+
+    res = pd.concat([df, forecast_df], ignore_index=True)
+    res = res.sort_values(["specialty_id", "year"]).reset_index(drop=True)
+
+    return res
 
 async def _forecast_sma(df: pd.DataFrame, forecast_range: tuple[int, int], sma_window: int, indicators=["applications", "kcp", "enrolled"]) -> pd.DataFrame:
     """Прогнозирует ключевые показатели с помощью взятия среднего из истории."""

@@ -136,36 +136,45 @@ function EmployeeForecastingComponent(): JSX.Element {
     yearFromHistory &&
     yearToHistory &&
     (
-      forecastMethod !== 'sma' ||
+      forecastMethod !== 'Скользящее среднее' ||
       movingAverageYears
     );
 
-  const handleSubmit = async () => {
-    const finalMethod =
-      forecastMethod === 'sma' && movingAverageYears
-        ? `sma_${movingAverageYears}`
-        : forecastMethod;
+    const handleSubmit = async () => {
+      let finalMethod = forecastMethod;
 
-    const params = {
-      specialty,
+      if (forecastMethod === 'Скользящее среднее' && movingAverageYears) {
+        const window = Number(movingAverageYears);
+        const remainder100 = window % 100;
+        const remainder10 = window % 10;
 
-      horizon: {
-        from: yearFromHorizon,
-        to: yearToHorizon
-      },
+        if (remainder100 >= 11 && remainder100 <= 14) {
+          finalMethod = `Скользящее среднее за ${window} лет`;
+        } else if (remainder10 === 1) {
+          finalMethod = `Скользящее среднее за ${window} год`;
+        } else if (remainder10 >= 2 && remainder10 <= 4) {
+          finalMethod = `Скользящее среднее за ${window} года`;
+        } else {
+          finalMethod = `Скользящее среднее за ${window} лет`;
+        }
+      }
 
-      history: {
-        from: yearFromHistory,
-        to: yearToHistory
-      },
+      const params = {
+        specialty,
+        horizon: {
+          from: yearFromHorizon,
+          to: yearToHorizon
+        },
+        history: {
+          from: yearFromHistory,
+          to: yearToHistory
+        },
+        method: finalMethod,
+      };
 
-      method: finalMethod
+      setIsModalOpen(true);
+      await generateReport(params);
     };
-
-    setIsModalOpen(true);
-
-    await generateReport(params);
-  };
 
   const handleReset = () => {
     setSpecialty('');
@@ -259,7 +268,7 @@ function EmployeeForecastingComponent(): JSX.Element {
               onChange={(e) => {
                 setForecastMethod(e.target.value);
 
-                if (e.target.value !== 'sma') {
+                if (e.target.value !== 'Сколязящее среднее') {
                   setMovingAverageYears('');
                 }
               }}
@@ -268,21 +277,25 @@ function EmployeeForecastingComponent(): JSX.Element {
                 Выберите метод
               </option>
 
-              <option value="sma">
+              <option value="Последнее значение">
+                Последнее значение
+              </option>
+
+              <option value="Скользящее среднее">
                 Скользящее среднее
               </option>
 
-              <option value="demographic">
+              <option value="Демографический метод">
                 Демографический метод
               </option>
 
-              <option value="exponential_smoothing">
+              <option value="Экспоненциальное сглаживание">
                 Экспоненциальное сглаживание
               </option>
             </select>
           </div>
 
-          {forecastMethod === 'sma' && (
+          {forecastMethod === 'Скользящее среднее' && (
             <div className={styles.input__container}>
               <label htmlFor="movingAverageYears">
                 Количество лет
@@ -299,10 +312,6 @@ function EmployeeForecastingComponent(): JSX.Element {
                   Выберите период
                 </option>
 
-                <option value="1">
-                  За 1 год
-                </option>
-
                 <option value="2">
                   За 2 года
                 </option>
@@ -313,6 +322,10 @@ function EmployeeForecastingComponent(): JSX.Element {
 
                 <option value="4">
                   За 4 года
+                </option>
+
+                <option value="5">
+                  За 5 лет
                 </option>
               </select>
             </div>
