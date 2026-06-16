@@ -55,7 +55,7 @@ function EmployeeReportsComponent(): JSX.Element {
                     </td>
 
                     <td>
-                      {report.method}
+                      {report.method_name}
                     </td>
 
                     <td>

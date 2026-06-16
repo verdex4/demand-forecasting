@@ -12,15 +12,21 @@ router = APIRouter(prefix="/api/v1/reports", tags=["reports"])
 @router.get("/", response_model=List[ReportOut])
 async def get_reports(db: AsyncSession = Depends(get_db)):
     query = """
-        SELECT r.*, s.code AS specialty_code, s.name AS specialty_name
+        SELECT 
+            r.*,
+            s.code AS specialty_code,
+            s.name AS specialty_name,
+            m.name AS method_name
         FROM public.reports r
         LEFT JOIN public.specialties s ON r.specialty_id = s.id
+        JOIN public.forecast_methods m ON r.method_id = m.id
     """
     reports_df = await fetch_query_to_df(query)
     if reports_df.empty:
         return []
     
     reports_df["specialty_full_name"] = reports_df["specialty_code"] + " " + reports_df["specialty_name"]
+    reports_df = reports_df.sort_values("created_at", ascending=False).reset_index(drop=True)
     
     return reports_df.to_dict(orient="records")
 

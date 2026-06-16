@@ -4,7 +4,8 @@ export type Report = {
   id: number;
   specialty_id: number;
   specialty_full_name: string;
-  method: string;
+  method_id: number;
+  method_name: string;
   start_year: number;
   current_year: number;
   end_year: number;

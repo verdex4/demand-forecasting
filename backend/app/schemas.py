@@ -139,7 +139,8 @@ class ReportOut(BaseModel):
     id: int
     specialty_id: int
     specialty_full_name: str
-    method: str
+    method_id: int
+    method_name: str
     start_year: int
     current_year: int
     end_year: int

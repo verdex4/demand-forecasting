@@ -1,7 +1,7 @@
-from typing import List
-from sqlalchemy import String, Integer, Float, ForeignKey, BigInteger, UniqueConstraint
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy import String, Integer, ForeignKey, BigInteger, UniqueConstraint, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
+from datetime import datetime
 
 # Many-to-Many: комплекты ЕГЭ и предметы
 class ExamSetItem(Base):
@@ -22,7 +22,7 @@ class Subject(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True)
     
-    exam_stats: Mapped[List["ExamStats"]] = relationship(back_populates="subject", lazy="selectin")
+    exam_stats: Mapped[list["ExamStats"]] = relationship(back_populates="subject", lazy="selectin")
 
 # Комплекты ЕГЭ
 class ExamSet(Base):
@@ -31,8 +31,8 @@ class ExamSet(Base):
     name: Mapped[str] = mapped_column(String(100))
     
     # связь с предметами
-    subjects: Mapped[List["Subject"]] = relationship(secondary="exam_set_items", lazy="selectin")
-    specialties: Mapped[List["Specialty"]] = relationship(secondary="specialty_exam_sets", back_populates="exam_sets", lazy="selectin")
+    subjects: Mapped[list["Subject"]] = relationship(secondary="exam_set_items", lazy="selectin")
+    specialties: Mapped[list["Specialty"]] = relationship(secondary="specialty_exam_sets", back_populates="exam_sets", lazy="selectin")
 
 # Специальности (направления подготовки)
 class Specialty(Base):
@@ -42,8 +42,8 @@ class Specialty(Base):
     name: Mapped[str] = mapped_column(String(255))
     
     # связь с комплектами ЕГЭ
-    exam_sets: Mapped[List["ExamSet"]] = relationship(secondary="specialty_exam_sets", back_populates="specialties", lazy="selectin")
-    application_stats: Mapped[List["ApplicationStats"]] = relationship(back_populates="specialty", lazy="selectin")
+    exam_sets: Mapped[list["ExamSet"]] = relationship(secondary="specialty_exam_sets", back_populates="specialties", lazy="selectin")
+    application_stats: Mapped[list["ApplicationStats"]] = relationship(back_populates="specialty", lazy="selectin")
 
 # Рождаемость
 class BirthRate(Base):
@@ -88,6 +88,7 @@ class Report(Base):
     current_year: Mapped[int] = mapped_column(Integer)
     end_year: Mapped[int] = mapped_column(Integer)
     url: Mapped[str] = mapped_column(String(512))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     __table_args__ = (
         UniqueConstraint(
