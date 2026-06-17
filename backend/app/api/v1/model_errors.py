@@ -9,11 +9,9 @@ router = APIRouter(prefix="/api/v1/model/errors", tags=["model_errors"])
 # получить ошибки модели
 @router.post("/", response_model=list[TestOut])
 async def test_model(request: Request, payload: TestIn | None = Body(None), db: AsyncSession = Depends(get_db)):
-    """Тестирует модель и выдаёт ошибки модели по wMAPE.
-    
-    methods - список методов прогнозирования
+    """Тестирует модель и выдаёт ошибки прогнозирования спроса (заявлений) по wMAPE.
 
-    Если тела запроса нет или methods пустой, будут выбраны все методы прогнозирования
+    Если тела запроса нет или methods пустой, будут выбраны все методы прогнозирования.
     """
     methods = None
     if payload:

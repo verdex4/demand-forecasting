@@ -8,6 +8,7 @@ import { useYearsHistoryTo } from "@/Hooks/useYearsHistoryTo";
 
 import { Button } from "@/Components/UI/Button";
 import { useReportGeneration } from "@/Hooks/useReportGeneration";
+import type { GenerateReportParams } from '@/Hooks/useReportGeneration'; 
 import { ReportModalWindow } from "@/Components/Widgets/ReportModal";
 
 function EmployeeForecastingComponent(): JSX.Element {
@@ -44,20 +45,24 @@ function EmployeeForecastingComponent(): JSX.Element {
   } = useReportGeneration();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   const [specialty, setSpecialty] = useState('');
-
   const [forecastMethod, setForecastMethod] = useState('');
   const [movingAverageYears, setMovingAverageYears] = useState('');
-
   const [yearToHorizon, setYearToHorizon] = useState('');
-
   const [yearFromHistory, setYearFromHistory] = useState('');
   const [yearToHistory, setYearToHistory] = useState('');
 
   // Состояние для отображения предупреждения о невозможности редактирования
   const [showReadonlyWarning, setShowReadonlyWarning] = useState(false);
   const warningRef = useRef<HTMLDivElement>(null);
+
+  // Ввод КЦП и платных мест
+  const [kcpMode, setKcpMode] = useState<'manual' | 'percentage' | null>(null);
+  const [paidMode, setPaidMode] = useState<'manual' | 'percentage' | null>(null);
+  const [kcpManualValues, setKcpManualValues] = useState<Record<string, string>>({});
+  const [paidManualValues, setPaidManualValues] = useState<Record<string, string>>({});
+  const [kcpGrowthPct, setKcpGrowthPct] = useState('');
+  const [paidGrowthPct, setPaidGrowthPct] = useState('');
 
   // Начальный год прогноза вычисляется автоматически и не хранится в стейте
   const yearFromHorizon = useMemo(() => {
@@ -67,6 +72,18 @@ function EmployeeForecastingComponent(): JSX.Element {
     return isAvailable ? nextYearStr : '';
   }, [yearToHistory, yearsHorizon]);
 
+  // Получаем список лет прогноза для отображения полей
+  const forecastYears = useMemo(() => {
+    if (!yearFromHorizon || !yearToHorizon) return [];
+    const from = Number(yearFromHorizon);
+    const to = Number(yearToHorizon);
+    const years: string[] = [];
+    for (let year = from; year <= to; year++) {
+      years.push(String(year));
+    }
+    return years;
+  }, [yearFromHorizon, yearToHorizon]);
+
   const yearsHistoryToOptions = useMemo(() => {
     if (!yearFromHistory) return yearsHistoryTo;
     const fromNum = Number(yearFromHistory);
@@ -75,13 +92,11 @@ function EmployeeForecastingComponent(): JSX.Element {
 
   const yearsHorizonToOptions = useMemo(() => {
     let options = yearsHorizon;
-    
     // Ограничение по истории: только года > yearToHistory
     if (yearToHistory) {
       const historyEnd = Number(yearToHistory);
       options = options.filter((y) => Number(y.value) > historyEnd);
     }
-    
     // Ограничение по начальному году прогноза: только года >= yearFromHorizon
     if (yearFromHorizon) {
       const fromNum = Number(yearFromHorizon);
@@ -109,6 +124,14 @@ function EmployeeForecastingComponent(): JSX.Element {
     if (yearToHorizon && Number(yearToHorizon) < Number(yearFromHorizon)) {
       setYearToHorizon('');
     }
+  }, [yearFromHorizon, yearToHorizon]);
+
+  // Сброс значений КЦП и платных мест при изменении диапазона прогноза
+  useEffect(() => {
+    setKcpManualValues({});
+    setPaidManualValues({});
+    setKcpGrowthPct('');
+    setPaidGrowthPct('');
   }, [yearFromHorizon, yearToHorizon]);
 
   // Скрываем предупреждение при клике в любое другое место экрана
@@ -159,7 +182,7 @@ function EmployeeForecastingComponent(): JSX.Element {
         }
       }
 
-      const params = {
+      const params : GenerateReportParams = {
         specialty,
         horizon: {
           from: yearFromHorizon,
@@ -172,29 +195,66 @@ function EmployeeForecastingComponent(): JSX.Element {
         method: finalMethod,
       };
 
+      // Добавляем данные КЦП
+      if (kcpMode === 'manual') {
+        const kcpManual: Record<string, number> = {};
+        forecastYears.forEach(year => {
+          const value = kcpManualValues[year];
+          if (value !== undefined && value !== null && String(value).trim() !== '') {
+            kcpManual[year] = Number(value);
+          }
+        });
+        params.kcpManual = kcpManual;
+      } else if (kcpMode === 'percentage') {
+        params.kcpGrowthPct = kcpGrowthPct ? Number(kcpGrowthPct) : undefined;
+      }
+
+      // Добавляем данные платных
+      if (paidMode === 'manual') {
+        const paidManual: Record<string, number> = {};
+        forecastYears.forEach(year => {
+          const value = paidManualValues[year];
+          if (value !== undefined && value !== null && String(value).trim() !== '') {
+            paidManual[year] = Number(value);
+          }
+        });
+        params.paidManual = paidManual;
+      } else if (paidMode === 'percentage') {
+        params.paidGrowthPct = paidGrowthPct ? Number(paidGrowthPct) : undefined;
+      }
+
       setIsModalOpen(true);
       await generateReport(params);
     };
 
   const handleReset = () => {
     setSpecialty('');
-
     setForecastMethod('');
     setMovingAverageYears('');
-
     setYearFromHistory('');
     setYearToHistory('');
     setYearToHorizon('');
-
     resetReportState();
-
     setIsModalOpen(false);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
-
     resetReportState();
+  };
+
+  const handleKcpManualChange = (year: string, value: string) => {
+    setKcpManualValues(prev => ({
+      ...prev,
+      [year]: value
+    }));
+  };
+
+  const handlePaidManualChange = (year: string, value: string) => {
+    setPaidManualValues(prev => ({
+      ...prev,
+      [year]: value
+    }));
   };
 
   if (loadingSpec || loadingHorizon || loadingHistoryFrom || loadingHistoryTo) {
@@ -450,6 +510,123 @@ function EmployeeForecastingComponent(): JSX.Element {
               </select>
             </div>
           </div>
+
+          {/* КЦП и платные места */}
+          {yearToHorizon && (
+            <>
+              {/* КЦП */}
+              <div className={styles.input__container}>
+                <label>
+                  КЦП (Контрольные цифры приёма)
+                </label>
+                
+                <div className={styles.mode_selection}>
+                  <button
+                    type="button"
+                    className={`${styles.mode_button} ${kcpMode === 'manual' ? styles.active : ''}`}
+                    onClick={() => setKcpMode(kcpMode === 'manual' ? null : 'manual')}
+                  >
+                    Вручную
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.mode_button} ${kcpMode === 'percentage' ? styles.active : ''}`}
+                    onClick={() => setKcpMode(kcpMode === 'percentage' ? null : 'percentage')}
+                  >
+                    В процентах прироста
+                  </button>
+                </div>
+
+                {kcpMode === 'manual' && forecastYears.length > 0 && (
+                  <div className={styles.manual_inputs}>
+                    {forecastYears.map((year) => (
+                      <div key={year} className={styles.manual_row}>
+                        <div className={styles.manual_year}>{year}</div>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="Введите значение"
+                          value={kcpManualValues[year] || ''}
+                          onChange={(e) => handleKcpManualChange(year, e.target.value)}
+                          className={styles.manual_input}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {kcpMode === 'percentage' && (
+                  <div className={styles.percentage_input}>
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="Введите процент прироста"
+                      value={kcpGrowthPct}
+                      onChange={(e) => setKcpGrowthPct(e.target.value)}
+                      className={styles.input_field}
+                    />
+                    <span className={styles.percent_sign}>%</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Платные места */}
+              <div className={styles.input__container}>
+                <label>
+                  Платные места
+                </label>
+                
+                <div className={styles.mode_selection}>
+                  <button
+                    type="button"
+                    className={`${styles.mode_button} ${paidMode === 'manual' ? styles.active : ''}`}
+                    onClick={() => setPaidMode(paidMode === 'manual' ? null : 'manual')}
+                  >
+                    Вручную
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.mode_button} ${paidMode === 'percentage' ? styles.active : ''}`}
+                    onClick={() => setPaidMode(paidMode === 'percentage' ? null : 'percentage')}
+                  >
+                    В процентах прироста
+                  </button>
+                </div>
+
+                {paidMode === 'manual' && forecastYears.length > 0 && (
+                  <div className={styles.manual_inputs}>
+                    {forecastYears.map((year) => (
+                      <div key={year} className={styles.manual_row}>
+                        <div className={styles.manual_year}>{year}</div>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="Введите значение"
+                          value={paidManualValues[year] || ''}
+                          onChange={(e) => handlePaidManualChange(year, e.target.value)}
+                          className={styles.manual_input}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {paidMode === 'percentage' && (
+                  <div className={styles.percentage_input}>
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="Введите процент прироста"
+                      value={paidGrowthPct}
+                      onChange={(e) => setPaidGrowthPct(e.target.value)}
+                      className={styles.input_field}
+                    />
+                    <span className={styles.percent_sign}>%</span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         <div className={styles.button_container}>
@@ -458,14 +635,6 @@ function EmployeeForecastingComponent(): JSX.Element {
             disabled={!isFormValid}
           >
             Сформировать отчёт
-          </Button>
-
-          <Button onClick={handleReset}>
-            Сбросить фильтры
-          </Button>
-
-          <Button>
-            Настройки отчёта
           </Button>
         </div>
 

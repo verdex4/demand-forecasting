@@ -1,19 +1,20 @@
 import { useState } from 'react';
 
-type GenerateReportParams = {
+export type GenerateReportParams = {
   specialty: string;
-
   history: {
     from: string;
     to: string;
   };
-
   horizon: {
     from: string;
     to: string;
   };
-
   method: string;
+  kcpManual?: Record<string, number>;
+  kcpGrowthPct?: number;
+  paidManual?: Record<string, number>;
+  paidGrowthPct?: number;
 };
 
 type ApiResponse = {
@@ -25,9 +26,7 @@ const API_URL = `${import.meta.env.VITE_API_URL}/api/v1/reports/`;
 
 export function useReportGeneration() {
   const [isLoading, setIsLoading] = useState(false);
-
   const [error, setError] = useState<string | null>(null);
-
   const [reportUrl, setReportUrl] = useState<string | null>(null);
 
   const generateReport = async (
@@ -35,39 +34,38 @@ export function useReportGeneration() {
   ) => {
     try {
       setIsLoading(true);
-
       setError(null);
-
       setReportUrl(null);
 
       const body = {
         input_specialty: params.specialty,
-
         history_range: [
           Number(params.history.from),
           Number(params.history.to),
         ],
-
         forecast_range: [
           Number(params.horizon.from),
           Number(params.horizon.to),
         ],
-
         method: params.method,
+        ...(params.kcpManual && { kcp_manual: params.kcpManual }),
+        ...(params.kcpGrowthPct !== undefined && { kcp_growth_pct: params.kcpGrowthPct }),
+        ...(params.paidManual && { paid_manual: params.paidManual }),
+        ...(params.paidGrowthPct !== undefined && { paid_growth_pct: params.paidGrowthPct }),
       };
 
       const response = await fetch(API_URL, {
         method: 'POST',
-
         headers: {
           'Content-Type': 'application/json',
         },
-
         body: JSON.stringify(body),
       });
 
       if (!response.ok) {
-        throw new Error('Ошибка генерации отчёта');
+        const errorBody = await response.json().catch(() => ({}));
+        const errorMessage = errorBody.detail;
+        throw new Error(`Ошибка генерации отчёта: ${errorMessage}`);
       }
 
       const data: ApiResponse = await response.json();
@@ -90,9 +88,7 @@ export function useReportGeneration() {
 
   const reset = () => {
     setError(null);
-
     setReportUrl(null);
-
     setIsLoading(false);
   };
 

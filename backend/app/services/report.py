@@ -6,11 +6,11 @@ import io
 from app.settings import REPORTS_DIR, REPORTS_URL
 from typing import Tuple
 from app.database import fetch_query_to_df
-from datetime import date
+from datetime import date, datetime
 from app.models import Report
 from sqlalchemy.ext.asyncio import AsyncSession
 
-async def make_report(df: pd.DataFrame, input_specialty: str, method: str, history_range: Tuple[int, int], forecast_range: Tuple[int, int], session: AsyncSession):
+async def make_report(df: pd.DataFrame, table_map: dict[str, int | float], input_specialty: str, method: str, history_range: Tuple[int, int], forecast_range: Tuple[int, int], session: AsyncSession):
     """Создаёт HTML-отчёт о востребованности специальности и сохраняет в backend/data/reports."""
     method_df = await fetch_query_to_df("SELECT id, slug, name FROM public.forecast_methods WHERE name = :name", {"name": method})
     method_id = method_df["id"].values[0]
@@ -28,61 +28,77 @@ async def make_report(df: pd.DataFrame, input_specialty: str, method: str, histo
     cur_year = history_range[1]
     end_year = forecast_range[1]
 
-    # если уже создан отчет - возвращаем его URL
-    existing = await fetch_query_to_df(
-        f"SELECT url FROM reports WHERE specialty_id = {specialty_id} AND method_id = '{method_id}' AND start_year = {start_year} AND current_year = {cur_year} AND end_year = {end_year}"
-    )
-    if not existing.empty:
-        return existing["url"].values[0]
-    
-    # находим данные по всем специальностям в текущем году
-    df_cur = df[df["year"] == cur_year]
-
     # находим указанную специальность
     df_spec = df[df["specialty_id"] == specialty_id]
-    spec_hist = df_spec[(df_spec["year"] >= start_year) & (df_spec["year"] <= cur_year)]
-    spec_cur = df_spec[df_spec["year"] == cur_year]
-    spec_fut = df_spec[(df_spec["year"] >= cur_year + 1) & (df_spec["year"] <= end_year)]
-    spec_last = df_spec[df_spec["year"] == end_year]
-    spec_cur_fut = pd.concat([spec_cur, spec_fut], ignore_index=True) # текущий год + прогноз
 
-    # определяем текущий и прогнозируемый уровень востребованности
-    cur_demand = _define_demand_level(df[df["year"] == cur_year], specialty_id)
-    future_demand = _define_demand_level(df[df["year"] == end_year], specialty_id)
+    # определяем текущий и прогнозируемый уровень спроса
+    cur_demand_data = _define_demand_level(df[df["year"] == cur_year], specialty_id)
+    future_demand_data = _define_demand_level(df[df["year"] == end_year], specialty_id)
 
-    # определяем стабильность прогноза (по истории)
-    stability = _define_stability(
-        df[(df["year"] >= start_year) & (df["year"] <= cur_year)],
+    if cur_demand_data[0] == "Не определён":
+        cur_demand_html = f"Не определён"
+    else:
+        cur_demand_html = f"<strong>{cur_demand_data[0]}</strong> ({cur_demand_data[1][0]}-е место из {cur_demand_data[1][1]})"
+    if future_demand_data[0] == "Не определён":
+        future_demand_html = f"Не определён"
+    else:
+        future_demand_html = f"<strong>{future_demand_data[0]}</strong> ({future_demand_data[1][0]}-е место из {future_demand_data[1][1]})"
+
+    # определяем стабильность спроса за всё время
+    demand_stability = _define_stability(
+        df[(df["year"] >= start_year) & (df["year"] <= end_year)],
         specialty_id
     )
+    if demand_stability[0] == "Не определена":
+        demand_stability_html = "Не определена"
+    else:
+        demand_stability_html = f"<strong>{demand_stability[0]}</strong> ({demand_stability[1][0]}-е место из {demand_stability[1][1]} по стабильности)"
 
-    # строим динамику востребованности
-    _plot_trend(spec_hist, spec_cur_fut, "D", "Год", "Востребованность", "Динамика востребованности")
+    # строим динамику спроса
+    _plot_trend(
+        df_spec[(df_spec["year"] >= start_year) & (df_spec["year"] <= cur_year)],
+        df_spec[(df_spec["year"] >= cur_year) & (df_spec["year"] <= end_year)],
+    )
     demand_plot = _plot_to_base64()
 
-    # создаем основную таблицу
-    index=["Доля внебюджетников", "Заявления", "Конкурс", "КЦП"]
-    columns = [f"Текущее значение ({cur_year} год)", "Динамика за год", f"Прогноз ({end_year} год)", "Место в вузе", "Статус тренда"]
-    df_table = pd.DataFrame(index=index, columns=columns)
+    # создаем и заполняем основную таблицу
+    kcp_input = table_map.get("kcp_input") if table_map.get("kcp_input") is not None else "Н/Д"
+    paid_input = table_map.get("paid_input") if table_map.get("paid_input") is not None else "Н/Д"
+    apps_pred = table_map.get("applications_pred") if table_map.get("applications_pred") is not None else "Н/Д"
+    c_budget = table_map.get("conversion_budget") if table_map.get("conversion_budget") is not None else "Н/Д"
+    c_paid = table_map.get("conversion_paid") if table_map.get("conversion_paid") is not None else "Н/Д"
+    balance_budget = table_map.get("balance_budget") if table_map.get("balance_budget") is not None else "Н/Д"
+    balance_paid = table_map.get("balance_paid") if table_map.get("balance_paid") is not None else "Н/Д"
+    data = {
+        "КЦП (ввод)": kcp_input,
+        "Платные (ввод)": paid_input,
+        "Заявления (прогноз)": apps_pred,
+        "Конверсия (бюджет)": c_budget,
+        "Конверсия (платные)": c_paid,
+        "КЦП (оптимум)": table_map.get("kcp_pred") or "Н/Д",
+        "Платные (оптимум)": table_map.get("paid_pred") or "Н/Д",
+        "Баланс (бюджет)": balance_budget,
+        "Баланс (платные)": balance_paid
+    }
+    df_table = pd.DataFrame([data], index=["Значение"])
 
-    # заполняем таблицу
-    for row, ind in zip(index, ["D1", "applications", "competition", "kcp"]):
-        df_table.loc[row, f"Текущее значение ({cur_year} год)"] = spec_cur[ind].values[0]
-        df_table.loc[row, "Динамика за год"] = spec_cur[ind].values[0] - spec_hist[spec_hist["year"] == cur_year - 1][ind].values[0]
-        df_table.loc[row, f"Прогноз ({end_year} год)"] = spec_fut[spec_fut["year"] == end_year][ind].values[0]
-        place = _get_place(df_cur, specialty_id, ind)
-        df_table.loc[row, "Место в вузе"] = place
-        trend = _get_trend(spec_cur[ind].values[0], spec_last[ind].values[0], end_year - cur_year)
-        df_table.loc[row, "Статус тренда"] = trend
+    # задаём рекомендации
+    budget_recs_html, paid_recs_html = "Для вас нет рекомендаций", "Для вас нет рекомендаций"
+    balance_budget = table_map["balance_budget"]
+    balance_paid = table_map["balance_paid"]
+    
+    budget_recs_html = _get_budget_recommendations(balance_budget, table_map["kcp_input"], table_map["kcp_pred"])
+    paid_recs_html = _get_paid_recommendations(balance_paid, table_map["paid_input"], table_map["paid_pred"])
+
 
     # форматируем таблицу
     html_table = _format_html_table(df_table)
 
     # создаем лепестковую диаграмму
-    _plot_radar(spec_cur, spec_last)
-    radar_plot = _plot_to_base64()
+    #_plot_radar(spec_cur, spec_last)
+    #radar_plot = _plot_to_base64()
 
-    # создаем понятный вид
+    # задаём понятный вид годам в начале отчета
     if start_year == cur_year:
         history_data = f"{start_year} г."
     else:
@@ -98,16 +114,19 @@ async def make_report(df: pd.DataFrame, input_specialty: str, method: str, histo
         method_name=method_name,
         history_data=history_data,
         forecast_data=forecast_data,
-        cur_demand=cur_demand,
-        future_demand=future_demand,
-        stability=stability,
+        cur_demand=cur_demand_html,
+        future_demand=future_demand_html,
+        demand_stability=demand_stability_html,
         demand_plot=demand_plot,
         table=html_table,
-        radar_plot=radar_plot
+        budget_recommendations=budget_recs_html,
+        paid_recommendations=paid_recs_html
     )
     
     # определяем название и путь файла
-    filename = f"{_rus_to_eng(specialty_name)}-{method_slug}-{start_year}-{cur_year}-{cur_year + 1}-{end_year}.html"
+    timestamp = datetime.now()
+    # TODO: сделать хэширование отчетов и поиск похожих
+    filename = f"{_rus_to_eng(specialty_name)}-{method_slug}-{timestamp.strftime("%Y-%m-%d-%H-%M-%S")}.html"
     file_path = f"{REPORTS_DIR}/{filename}"
     url_path = f"{REPORTS_URL}/{filename}"
 
@@ -122,7 +141,8 @@ async def make_report(df: pd.DataFrame, input_specialty: str, method: str, histo
         start_year=start_year,
         current_year=cur_year,
         end_year=end_year,
-        url=url_path
+        url=url_path,
+        created_at=timestamp
     )
     session.add(report)
 
@@ -139,16 +159,16 @@ def _plot_to_base64():
     
     return base64.b64encode(buf.read()).decode('utf-8')
 
-def _plot_trend(history: pd.DataFrame, future: pd.DataFrame, indicator: str, xlabel: str, ylabel: str, title: str):
+def _plot_trend(df_history: pd.DataFrame, df_cur_future: pd.DataFrame):
     # сначала прогнозные, чтобы они были на заднем фоне
-    plt.plot(future["year"], future[indicator], label="Прогноз", color="#d62728", marker="o", linestyle="--")
-    plt.plot(history["year"], history[indicator], label="Факт", color="#1f77b4", marker="s", markersize=7, linestyle="-")
+    plt.plot(df_cur_future["year"], df_cur_future["demand"], label="Прогноз", color="#d62728", marker="o", linestyle="--")
+    plt.plot(df_history["year"], df_history["demand"], label="Факт", color="#1f77b4", marker="s", markersize=7, linestyle="-")
 
-    plt.xlabel(xlabel)
+    plt.xlabel("Год")
     from matplotlib.ticker import MaxNLocator
     plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
-    plt.ylabel(ylabel)
-    plt.title(title)
+    plt.ylabel("Спрос")
+    plt.title("Динамика спроса")
     plt.legend()
     plt.grid(True, alpha=0.3)
 
@@ -217,11 +237,14 @@ def _rus_to_eng(s: str) -> str:
     return "".join(d.get(c, c) for c in s)
 
 def _define_demand_level(df: pd.DataFrame, specialty_id: int) -> Tuple[str, Tuple[int, int]]:
+    if df[df["specialty_id"] == specialty_id].shape[0] == 0:
+        return "Не определён", (0, 0)
+    
     df = df.copy()
-    df['percentile'] = df["D"].rank(pct=True)
-    percentile = df.loc[df['specialty_id'] == specialty_id, 'percentile'].values[0]
+    df["percentile"] = df["demand"].rank(pct=True)
+    percentile = df.loc[df["specialty_id"] == specialty_id, "percentile"].values[0]
 
-    df = df.sort_values("D", ascending=False).reset_index(drop=True)
+    df = df.sort_values("demand", ascending=False).reset_index(drop=True)
     place = df[df["specialty_id"] == specialty_id].index[0] + 1
     all_places = df.shape[0]
     place_res = (place, all_places)
@@ -235,13 +258,16 @@ def _define_demand_level(df: pd.DataFrame, specialty_id: int) -> Tuple[str, Tupl
     return "Очень высокий", place_res
 
 def _define_stability(df: pd.DataFrame, specialty_id: int) -> Tuple[str, Tuple[int, int]]:
-    spec_df = df.groupby("specialty_id")["D"].std().reset_index(name="std")
-    spec_df["percentile"] = spec_df["std"].rank(pct=True)
-    percentile = spec_df.loc[spec_df['specialty_id'] == specialty_id, 'percentile'].values[0]
+    if df[df["specialty_id"] == specialty_id].shape[0] == 0:
+        return "Не определена", (0, 0)
+    
+    df_std = df.groupby("specialty_id")["demand"].std().reset_index(name="std")
+    df_std["percentile"] = df_std["std"].rank(pct=True)
+    percentile = df_std.loc[df_std['specialty_id'] == specialty_id, 'percentile'].values[0]
 
-    spec_df = spec_df.sort_values("std").reset_index(drop=True)
-    place = spec_df[spec_df["specialty_id"] == specialty_id].index[0] + 1
-    all_places = spec_df.shape[0]
+    df_std = df_std.sort_values("std").reset_index(drop=True)
+    place = df_std[df_std["specialty_id"] == specialty_id].index[0] + 1
+    all_places = df_std.shape[0]
     place_res = (place, all_places)
 
     if percentile < 0.25:
@@ -282,7 +308,80 @@ def _get_trend(cur_val: float, forecast_val: float, years: int) -> str:
     
     return f"Рост<br>(+{round(cagr, 1)}% г/г)"
 
+def _get_budget_recommendations(balance, actual, pred):
+    """Возвращает рекомендации для КЦП на основе баланса спроса и предложения в html-формате."""
+    if actual == 0:
+        if pred == 0:
+            recs = "<strong>КЦП</strong>: Оптимальное количество<br>Рекомендуется оставить число бюджетных мест без изменений."
+        # FIXME: используется хардкод
+        elif pred < 10:
+            recs = f"<strong>КЦП</strong>: <strong>Недостаток мест</strong><br>Рекомендуется увеличить число бюджетных мест на {pred}."
+        else:
+            recs = f"<strong>КЦП</strong>: <strong>Существенный недостаток мест</strong><br>Рекомендуется увеличить число бюджетных мест на {pred}."
+        return f"<p>{recs}</p>"
+    if pred == 0:
+        # FIXME: используется хардкод
+        if actual < 10:
+            recs = f"<strong>КЦП</strong>: <strong>Избыток мест</strong><br>Рекомендуется сократить число бюджетных мест на {actual}."
+        else:
+            recs = f"<strong>КЦП</strong>: <strong>Существенный избыток мест</strong><br>Рекомендуется сократить число бюджетных мест на {actual}."
+        return f"<p>{recs}</p>"
+
+    add = pred - actual
+    add_pct = round((pred - actual) / actual * 100, 1)
+    sub = actual - pred
+    sub_pct = round((pred - actual) / actual * 100, 1)
+    if balance >= 1.5:
+        recs = f"<strong>КЦП</strong>: <strong>Существенный недостаток мест</strong><br>Рекомендуется увеличить число бюджетных мест на {add} (+{add_pct}%)."
+    elif 1.1 <= balance < 1.5:
+        recs = f"<strong>КЦП</strong>: <strong>Недостаток мест</strong><br>Рекомендуется увеличить число бюджетных мест на {add} (+{add_pct}%)."
+    elif 0.9 < balance < 1.1:
+        recs = f"<strong>КЦП</strong>: Оптимальное количество<br>Рекомендуется оставить число бюджетных мест без изменений."
+    elif 0.5 < balance <= 0.9:
+        recs = f"<strong>КЦП</strong>: <strong>Избыток мест</strong><br>Рекомендуется сократить число бюджетных мест на {sub} ({sub_pct}%)."
+    else: # <= 0.5
+        recs = f"<strong>КЦП</strong>: <strong>Существенный избыток мест</strong><br>Рекомендуется сократить число бюджетных мест на {sub} ({sub_pct}%)."
+
+    return f"<p>{recs}</p>"
+
+def _get_paid_recommendations(balance, actual, pred):
+    """Возвращает рекомендации для платных мест на основе баланса спроса и предложения в html-формате."""
+    if actual == 0:
+        if pred == 0:
+            recs = "<strong>Платные места</strong>: Оптимальное количество<br>Рекомендуется оставить число бюджетных мест без изменений."
+        # FIXME: используется хардкод
+        elif pred < 10:
+            recs = f"<strong>Платные места</strong>: <strong>Недостаток мест</strong><br>Рекомендуется увеличить число бюджетных мест на {pred}."
+        else:
+            recs = f"<strong>Платные места</strong>: <strong>Существенный недостаток мест</strong><br>Рекомендуется увеличить число бюджетных мест на {pred}."
+        return f"<p>{recs}</p>"
+    if pred == 0:
+        # FIXME: используется хардкод
+        if actual < 10:
+            recs = f"<strong>Платные места</strong>: <strong>Избыток мест</strong><br>Рекомендуется сократить число бюджетных мест на {actual}."
+        else:
+            recs = f"<strong>Платные места</strong>: <strong>Существенный избыток мест</strong><br>Рекомендуется сократить число бюджетных мест на {actual}."
+        return f"<p>{recs}</p>"
+    
+    add = pred - actual
+    add_pct = round((pred - actual) / actual * 100, 1)
+    sub = actual - pred
+    sub_pct = round((pred - actual) / actual * 100, 1)
+    if balance >= 1.5:
+        recs = f"<strong>Платные места</strong>: <strong>Существенный недостаток</strong><br>Рекомендуется увеличить число платных мест на {add} (+{add_pct}%)."
+    elif 1.1 <= balance < 1.5:
+        recs = f"<strong>Платные места</strong>: <strong>Недостаток</strong><br>Рекомендуется увеличить число платных мест на {add} (+{add_pct}%)."
+    elif 0.9 < balance < 1.1:
+        recs = f"<strong>Платные места</strong>: Оптимальное количество<br>Рекомендуется оставить число платных мест без изменений."
+    elif 0.5 < balance <= 0.9:
+        recs = f"<strong>Платные места</strong>: <strong>Избыток</strong><br>Рекомендуется сократить число платных мест на {sub} ({sub_pct}%)."
+    else: # <= 0.5
+        recs = f"<strong>Платные места</strong>: <strong>Существенный избыток</strong><br>Рекомендуется сократить число платных мест на {sub} ({sub_pct}%)."
+
+    return f"<p>{recs}</p>"
+
 def _format_html_table(df: pd.DataFrame) -> str:
+    """
     for col in range(3):
         val = float(df.iloc[0, col]) * 100
         df.iloc[0, col] = f"{val:.1f}%"
@@ -299,6 +398,7 @@ def _format_html_table(df: pd.DataFrame) -> str:
         else:
             df.iloc[row, 1] = f"+{df.iloc[row, 1]}"
             df.iloc[row, 1] = f"▲{df.iloc[row, 1]:>8}"
+    """
 
     html_style = """
     <style>
@@ -341,40 +441,38 @@ def _make_html_content(**params) -> str:
             <li>Метод прогнозирования: {params["method_name"]}</li>
         </ul>
 
-        <h3>Итоговый показатель востребованности</h3>
+        <h3>Показатель спроса</h3>
         <ul>
-            <li>Текущий уровень: <strong>{params["cur_demand"][0]}</strong> ({params["cur_demand"][1][0]}-е место из {params["cur_demand"][1][1]})</li>
-            <li>Ожидаемый уровень: <strong>{params["future_demand"][0]}</strong> ({params["future_demand"][1][0]}-е место из {params["future_demand"][1][1]})</li>
-            <li>Стабильность показателя: <strong>{params["stability"][0]}</strong> ({params["stability"][1][0]}-е место из {params["stability"][1][1]} по стабильности)</li>
+            <li>Текущий уровень: {params["cur_demand"]}</li>
+            <li>Ожидаемый уровень: {params["future_demand"]}</li>
+            <li>Стабильность показателя: {params["demand_stability"]}</li>
         </ul>
         <p class="text-secondary">
-        Общее количество специальностей может отличаться, т.к. часть данных отсутствует.
+        Часть данных отсутствует, поэтому количество специальностей может отличаться и спрос может быть не определён.
         </p>
-        <p>Ниже приведена динамика изменения итоговой востребованности:</p>
+
+        <p>Ниже приведена динамика изменения спроса:</p>
         <div class="plot-container">
             <img src="data:image/png;base64,{params["demand_plot"]}" alt="График">
         </div>
         <p class="text-secondary">
-        Считаем, что за первый год нельзя посчитать востребованность. Это стартовая точка для будущих лет.
+        Т.к. показатель считает разницу с предыдущим годом, то за первый год истории нельзя посчитать спрос.
         </p>
 
-        <h3>Базовые показатели и прогноз развития</h3>
+        <h3>Прогноз, баланс спроса и предложения</h3>
         {params["table"]}
-        <p class="text-secondary">
-        Место в вузе находится среди всех специальностей по указанному показателю. Чем выше показатель, тем выше место.
-        </p>
 
-        <h3>Вектор изменения востребованности направления</h3>
-        <p>Лепестковая диаграмма ниже отображает текущий и прогнозируемый вклад каждого фактора в итоговый показатель востребованности.</p>
-        <div class="plot-container">
-            <img src="data:image/png;base64,{params["radar_plot"]}" alt="График">
-        </div>
+        <h3>Выводы и рекомендации</h3>
+        {params["budget_recommendations"]}
+        {params["paid_recommendations"]}
+
         <div style="font-family: sans-serif; background-color: #f0f7ff; border-left: 4px solid #0066cc; padding: 15px; margin-top: 30px; border-radius: 4px;">
         <p style="margin: 0; font-size: 14px; color: #333333;">
             <strong>Не понятна интерпретация результатов?</strong><br>
             Загляните в раздел <a href="http://localhost:5173/employee/help" style="color: #0066cc; font-weight: bold; text-decoration: none;">"Справка"</a> на главной странице в личном кабинете — там собрана подробная информация.
         </p>
         </div>
+
         <p><strong>Дата создания:</strong> {date.today().strftime("%d.%m.%Y")}</p>
     </body>
     </html>

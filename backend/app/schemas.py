@@ -130,6 +130,10 @@ class ReportCreate(BaseModel):
     history_range: tuple[int, int]
     forecast_range: tuple[int, int]
     method: str
+    kcp_manual: dict[str, int] | None = None  # {Год: КЦП}
+    kcp_growth_pct: float | None = None       # Прирост КЦП по годам в процентах
+    paid_manual: dict[str, int] | None = None # {Год: Количество платных мест}
+    paid_growth_pct: float | None = None      # Прирост внебюджетников по годам в процентах
 
 class ReportCreateOut(BaseModel):
     success: bool
@@ -152,4 +156,4 @@ class TestIn(BaseModel):
 
 class TestOut(BaseModel):
     method: str
-    metrics: list[dict[str, str | dict[int, float | None]]]
+    errors: dict[int, float | None]

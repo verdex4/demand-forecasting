@@ -90,17 +90,6 @@ class Report(Base):
     url: Mapped[str] = mapped_column(String(512))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
-    __table_args__ = (
-        UniqueConstraint(
-            "specialty_id", 
-            "method_id", 
-            "start_year", 
-            "current_year", 
-            "end_year", 
-            name="uq_report_specialty_method_years"
-        ),
-    )
-
 # Методы прогнозирования
 class ForecastMethod(Base):
     __tablename__ = "forecast_methods"

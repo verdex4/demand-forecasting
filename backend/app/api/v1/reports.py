@@ -42,10 +42,17 @@ async def create_report(request: Request, params: ReportCreate, db: AsyncSession
     * Экспоненциальное сглаживание
     """
     try:
-        df = await make_forecast(params.method, params.history_range, params.forecast_range)
+        df_demand, table_map = await make_forecast(
+            params.input_specialty,
+            params.method, params.history_range, params.forecast_range,
+            params.kcp_manual, params.kcp_growth_pct,
+            params.paid_manual, params.paid_growth_pct
+        )
+
         async with AsyncSessionLocal() as async_session:
             report_url = await make_report(
-                df,
+                df_demand,
+                table_map,
                 params.input_specialty,
                 params.method,
                 params.history_range,

@@ -14,15 +14,12 @@
 
 .title {
   font-size: clamp(24px, 4vw, 34px);
-
   font-weight: 700;
-
   color: white;
 }
 
 .subtitle {
   font-size: 15px;
-
   color: var(--text-muted);
 }
 
@@ -35,15 +32,10 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-
   padding: clamp(16px, 3vw, 28px);
-
   border-radius: var(--radius-lg);
-
   background: var(--bg-card);
-
   border: 1px solid var(--border-primary);
-
   backdrop-filter: blur(12px);
 }
 
@@ -60,21 +52,13 @@
 
 .input__container select {
   width: 100%;
-
   min-height: 48px;
-
   padding: 0 14px;
-
   border-radius: var(--radius-md);
-
   background: rgba(255,255,255,0.06);
-
   border: 1px solid var(--border-primary);
-
   color: white;
-
   transition: var(--transition);
-
   outline: none;
 }
 
@@ -84,7 +68,6 @@
 
 .input__container select:focus {
   border-color: var(--blue-primary);
-
   box-shadow: 0 0 0 3px rgba(59,130,246,0.18);
 }
 
@@ -135,8 +118,126 @@
   min-width: 220px;
 }
 
-/* MOBILE */
+// Стили для КЦП и платных мест
+.mode_selection {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
 
+.mode_button {
+  flex: 1;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: var(--transition);
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(59, 130, 246, 0.4);
+  }
+  
+  &.active {
+    background: var(--blue-primary);
+    border-color: var(--blue-primary);
+    color: white;
+  }
+}
+
+.manual_inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.manual_row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.manual_year {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.manual_input {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: 14px;
+  outline: none;
+  transition: var(--transition);
+  
+  &:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+  }
+  
+  &:focus {
+    border-color: var(--blue-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+  }
+  
+  &::placeholder {
+    color: var(--text-muted);
+  }
+}
+
+.percentage_input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.input_field {
+  flex: 1;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: 14px;
+  outline: none;
+  transition: var(--transition);
+  
+  &:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+  }
+  
+  &:focus {
+    border-color: var(--blue-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+  }
+  
+  &::placeholder {
+    color: var(--text-muted);
+  }
+}
+
+.percent_sign {
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* MOBILE */
 @media (max-width: 768px) {
   .years {
     grid-template-columns: 1fr;
