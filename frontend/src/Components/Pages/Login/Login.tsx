@@ -33,15 +33,7 @@ function LoginComponent(): JSX.Element {
             onClick={() => setRole('employee')}
             fullWidth
           >
-            Сотрудник вуза
-          </Button>
-
-          <Button
-            color={role === 'applicant' ? 'blue' : 'secondary'}
-            onClick={() => setRole('applicant')}
-            fullWidth
-          >
-            Абитуриент
+            Сотрудник вуза <span className={styles.secondary}>(руководство, аналитики)</span>
           </Button>
         </div>
 

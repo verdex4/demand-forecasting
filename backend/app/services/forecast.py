@@ -45,7 +45,6 @@ async def make_forecast(
     # удаляем записи, где набор не вёлся (это ухудшает прогноз)
     inactive_rows = (df['kcp'] == 0) & (df['enrolled'] == 0)
     df.loc[inactive_rows, ['applications', 'kcp', 'enrolled']] = pd.NA
-    # удаляем и те, у которых нет части данных, т.к. не хватит данных для подсчёта
     df = df.dropna().reset_index(drop=True).astype("Int64")
 
     # проверяем корректность ввода метода
@@ -171,15 +170,16 @@ async def make_forecast(
     df_spec["paid_pred"] = np.ceil(df_spec["paid_pred"]).astype("Int64")
 
     # создаём таблицу для отчёта
+    cur_year = df_spec[df_spec["year"] == history_range[1]].iloc[0].to_dict()
     last_year = df_spec[df_spec["year"] == forecast_range[1]].iloc[0].to_dict()
     balance_budget = round(last_year["kcp_pred"] / last_year["kcp"], 2) if last_year["kcp"] > 0 else None
     balance_paid = round(last_year["paid_pred"] / last_year["paid"], 2) if last_year["paid"] > 0 else None
     table_map = {
         "kcp_input": int(last_year["kcp"]),
         "paid_input": int(last_year["paid"]),
+        "kcp_input_show": f"{int(cur_year['kcp'])} → {int(last_year["kcp"])}",
+        "paid_input_show": f"{int(cur_year['paid'])} → {int(last_year["paid"])}",
         "applications_pred": int(last_year["applications"]),
-        "conversion_budget": round(c_budget, 4),
-        "conversion_paid": round(c_paid, 4),
         "kcp_pred": int(last_year["kcp_pred"]),
         "paid_pred": int(last_year["paid_pred"]),
         "balance_budget": balance_budget,

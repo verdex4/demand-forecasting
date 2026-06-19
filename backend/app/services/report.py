@@ -28,6 +28,9 @@ async def make_report(df: pd.DataFrame, table_map: dict[str, int | float], input
     cur_year = history_range[1]
     end_year = forecast_range[1]
 
+    # добавляем перцентили
+    df["demand_percentile"] = df.groupby("year")["demand"].rank(pct=True)
+
     # находим указанную специальность
     df_spec = df[df["specialty_id"] == specialty_id]
 
@@ -62,21 +65,19 @@ async def make_report(df: pd.DataFrame, table_map: dict[str, int | float], input
     demand_plot = _plot_to_base64()
 
     # создаем и заполняем основную таблицу
-    kcp_input = table_map.get("kcp_input") if table_map.get("kcp_input") is not None else "Н/Д"
-    paid_input = table_map.get("paid_input") if table_map.get("paid_input") is not None else "Н/Д"
+    kcp_input = table_map.get("kcp_input_show") if table_map.get("kcp_input_show") is not None else "Н/Д"
+    paid_input = table_map.get("paid_input_show") if table_map.get("paid_input_show") is not None else "Н/Д"
     apps_pred = table_map.get("applications_pred") if table_map.get("applications_pred") is not None else "Н/Д"
-    c_budget = table_map.get("conversion_budget") if table_map.get("conversion_budget") is not None else "Н/Д"
-    c_paid = table_map.get("conversion_paid") if table_map.get("conversion_paid") is not None else "Н/Д"
+    kcp_opt = table_map.get("kcp_pred") if table_map.get("kcp_pred") is not None else "Н/Д"
+    paid_opt = table_map.get("paid_pred") if table_map.get("paid_pred") is not None else "Н/Д"
     balance_budget = table_map.get("balance_budget") if table_map.get("balance_budget") is not None else "Н/Д"
     balance_paid = table_map.get("balance_paid") if table_map.get("balance_paid") is not None else "Н/Д"
     data = {
         "КЦП (ввод)": kcp_input,
         "Платные (ввод)": paid_input,
         "Заявления (прогноз)": apps_pred,
-        "Конверсия (бюджет)": c_budget,
-        "Конверсия (платные)": c_paid,
-        "КЦП (оптимум)": table_map.get("kcp_pred") or "Н/Д",
-        "Платные (оптимум)": table_map.get("paid_pred") or "Н/Д",
+        "КЦП (оптимум)": kcp_opt,
+        "Платные (оптимум)": paid_opt,
         "Баланс (бюджет)": balance_budget,
         "Баланс (платные)": balance_paid
     }
@@ -161,13 +162,23 @@ def _plot_to_base64():
 
 def _plot_trend(df_history: pd.DataFrame, df_cur_future: pd.DataFrame):
     # сначала прогнозные, чтобы они были на заднем фоне
-    plt.plot(df_cur_future["year"], df_cur_future["demand"], label="Прогноз", color="#d62728", marker="o", linestyle="--")
-    plt.plot(df_history["year"], df_history["demand"], label="Факт", color="#1f77b4", marker="s", markersize=7, linestyle="-")
+    plt.plot(df_cur_future["year"], df_cur_future["demand_percentile"], label="Прогноз", color="#d62728", marker="o", linestyle="--")
+    plt.plot(df_history["year"], df_history["demand_percentile"], label="Факт", color="#1f77b4", marker="s", markersize=7, linestyle="-")
 
+    # переводим числа в категории, ось y
+    plt.yticks([0.0, 0.25, 0.5, 0.75, 1.0], labels=[])
+    label_positions = [0.125, 0.375, 0.625, 0.875] # середины категорий
+    labels = ["Низкий", "Средний", "Высокий", "Очень высокий"]
+    plt.gca().set_yticks(label_positions, minor=True)
+    plt.gca().set_yticklabels(labels, minor=True)
+    plt.gca().tick_params(axis='y', which='minor', length=0)
+    plt.ylabel("Уровень спроса")
+
+    # ось x
     plt.xlabel("Год")
     from matplotlib.ticker import MaxNLocator
     plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
-    plt.ylabel("Спрос")
+    
     plt.title("Динамика спроса")
     plt.legend()
     plt.grid(True, alpha=0.3)
@@ -410,6 +421,9 @@ def _format_html_table(df: pd.DataFrame) -> str:
             text-align: center !important;
             vertical-align: middle;
             padding: 8px;
+        }
+        .centered-table td {
+            white-space: nowrap;
         }
     </style>
     """
