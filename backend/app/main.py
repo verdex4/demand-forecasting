@@ -13,15 +13,15 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.services.report_cleanup import cleanup_reports
 import logging
 
-scheduler = AsyncIOScheduler()
+#scheduler = AsyncIOScheduler()
 logging.basicConfig(level=logging.INFO, format='%(filename)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # добавляем задачу очистки лишних отчетов каждые 5 минут (т.к. приложение часто запускается ненадолго)
-    scheduler.add_job(cleanup_reports, "interval", minutes=5)
-    scheduler.start()
+    # scheduler.add_job(cleanup_reports, "interval", minutes=5)
+    # scheduler.start()
 
     # создаем таблицы
     async with engine.begin() as conn:
@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    scheduler.shutdown()
+    # scheduler.shutdown()
 
     await engine.dispose()
 
@@ -58,7 +58,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/reports", StaticFiles(directory=REPORTS_DIR), name="reports")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 @app.get("/")

@@ -1,7 +1,13 @@
-from sqlalchemy import String, Integer, ForeignKey, BigInteger, UniqueConstraint, func
+from sqlalchemy import String, Integer, Text, ForeignKey, BigInteger, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 from datetime import datetime
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(200))
+    hash_password: Mapped[str] = mapped_column(String(200))
 
 # Many-to-Many: комплекты ЕГЭ и предметы
 class ExamSetItem(Base):
@@ -82,12 +88,13 @@ class Report(Base):
     __tablename__ = "reports"
     
     id: Mapped[int] = mapped_column(primary_key=True)
+    #user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     specialty_id: Mapped[int] = mapped_column(ForeignKey("specialties.id"))
     method_id: Mapped[int] = mapped_column(ForeignKey("forecast_methods.id"))
     start_year: Mapped[int] = mapped_column(Integer)
     current_year: Mapped[int] = mapped_column(Integer)
     end_year: Mapped[int] = mapped_column(Integer)
-    url: Mapped[str] = mapped_column(String(512))
+    html_content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 # Методы прогнозирования

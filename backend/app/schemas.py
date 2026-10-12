@@ -137,18 +137,17 @@ class ReportCreate(BaseModel):
 
 class ReportCreateOut(BaseModel):
     success: bool
-    report_url: HttpUrl
 
-class ReportOut(BaseModel):
+class ReportListOut(BaseModel):
     id: int
-    specialty_id: int
     specialty_full_name: str
-    method_id: int
     method_name: str
     start_year: int
     current_year: int
     end_year: int
-    url: HttpUrl
+
+class ReportOut(BaseModel):
+    html_content: str
 
 # СХЕМЫ ДЛЯ ТЕСТИРОВАНИЯ МОДЕЛИ
 class TestIn(BaseModel):

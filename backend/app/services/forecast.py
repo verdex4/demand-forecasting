@@ -53,8 +53,8 @@ async def make_forecast(
         params={"name": method}
     )
     if not method_in_db:
-        available = await fetch_query_to_df("SELECT slug FROM public.forecast_methods")
-        raise_error(f"Метода прогнозирования {method} не существует, доступные: {', '.join(available['slug'].values)}")
+        available = await fetch_query_to_df("SELECT name FROM public.forecast_methods")
+        raise_error(f"Метода прогнозирования {method} не существует, доступные: {', '.join(available['name'].values)}")
 
     # определяем функцию прогнозирования
     params = {}

@@ -124,16 +124,7 @@ async def make_report(df: pd.DataFrame, table_map: dict[str, int | float], input
         paid_recommendations=paid_recs_html
     )
     
-    # определяем название и путь файла
     timestamp = datetime.now()
-    # TODO: сделать хэширование отчетов и поиск похожих
-    filename = f"{_rus_to_eng(specialty_name)}-{method_slug}-{timestamp.strftime("%Y-%m-%d-%H-%M-%S")}.html"
-    file_path = f"{REPORTS_DIR}/{filename}"
-    url_path = f"{REPORTS_URL}/{filename}"
-
-    # сохраняем отчет в файл
-    with open(file_path, 'w', encoding='utf-8') as f:
-        f.write(html_content)
 
     # создаем запись в БД
     report = Report(
@@ -142,14 +133,12 @@ async def make_report(df: pd.DataFrame, table_map: dict[str, int | float], input
         start_year=start_year,
         current_year=cur_year,
         end_year=end_year,
-        url=url_path,
+        html_content=html_content,
         created_at=timestamp
     )
     session.add(report)
 
     await session.commit()
-    
-    return url_path
 
 def _plot_to_base64():
     """Сохраняет matplotlib-график в виде base64-строки."""
