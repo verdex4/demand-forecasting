@@ -1,7 +1,33 @@
-from pydantic import BaseModel, ConfigDict, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
-# 1. СХЕМЫ ДЛЯ ПРЕДМЕТОВ (Subjects)
+# СХЕМЫ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ (Users)
+class UserBase(BaseModel):
+    """Базовая схема для пользователя."""
+    pass
+
+class UserCreate(UserBase):
+    """Схема для создания нового пользователя (входные данные)."""
+    email: str
+    password: str
+
+class UserCreateOut(UserBase):
+    """Схема для вывода результата создания пользователя."""
+    user_id: int
+    jwt: str
+
+class UserLogin(UserBase):
+    """Схема для входа пользователя (входные данные)."""
+    email: str
+    password: str
+
+class UserLoginOut(UserBase):
+    """Схема для вывода результата входа пользователя."""
+    user_id: int
+    jwt: str
+
+
+# СХЕМЫ ДЛЯ ПРЕДМЕТОВ (Subjects)
 class SubjectBase(BaseModel):
     """Базовая схема для предмета."""
     name: str
@@ -17,7 +43,7 @@ class SubjectCreate(SubjectBase):
     pass # нужно только имя
 
 
-# 2. СХЕМЫ ДЛЯ КОМПЛЕКТОВ ЕГЭ (ExamSets)
+# СХЕМЫ ДЛЯ КОМПЛЕКТОВ ЕГЭ (ExamSets)
 class ExamSetBase(BaseModel):
     """Базовая схема для комплекта ЕГЭ."""
     name: str
@@ -34,7 +60,7 @@ class ExamSetCreate(ExamSetBase):
     subject_ids: list[int]
 
 
-# 3. СХЕМЫ ДЛЯ СТАТИСТИКИ ПО ЗАЯВЛЕНИЯМ (ApplicationStats)
+# СХЕМЫ ДЛЯ СТАТИСТИКИ ПО ЗАЯВЛЕНИЯМ (ApplicationStats)
 class ApplicationStatsBase(BaseModel):
     """Базовая схема для статистики по заявлениям."""
     id: int
@@ -56,7 +82,7 @@ class ApplicationStatsCreate(ApplicationStatsBase):
     specialty_id: int
 
 
-# 4. СХЕМЫ ДЛЯ СТАТИСТИКИ ПО ЭКЗАМЕНАМ (ExamStats)
+# СХЕМЫ ДЛЯ СТАТИСТИКИ ПО ЭКЗАМЕНАМ (ExamStats)
 class ExamStatsBase(BaseModel):
     """Базовая схема для статистики по экзаменам."""
     year: int
@@ -74,7 +100,7 @@ class ExamStatsCreate(ExamStatsBase):
     subject_id: int
 
 
-# 5. СХЕМЫ ДЛЯ СТАТИСТИКИ ПО РОЖДЕНИЯМ (BirthRate)
+# СХЕМЫ ДЛЯ СТАТИСТИКИ ПО РОЖДЕНИЯМ (BirthRate)
 class BirthRateBase(BaseModel):
     year: int
     births: int
@@ -86,7 +112,8 @@ class BirthRateCreate(BirthRateBase):
     pass
 
 
-# 6. СХЕМЫ ДЛЯ СПЕЦИАЛЬНОСТЕЙ (Specialties)
+# СХЕМЫ ДЛЯ СПЕЦИАЛЬНОСТЕЙ (Specialties)
+
 class SpecialtyBase(BaseModel):
     """Базовая схема для специальности."""
     code: str | None = None
@@ -124,6 +151,7 @@ class SpecialtyUpdate(BaseModel):
     name: str | None = None
     exam_set_ids: list[int] | None = None
 
+
 # СХЕМЫ ДЛЯ ОТЧЁТОВ
 class ReportCreate(BaseModel):
     input_specialty: str
@@ -148,6 +176,7 @@ class ReportListOut(BaseModel):
 
 class ReportOut(BaseModel):
     html_content: str
+
 
 # СХЕМЫ ДЛЯ ТЕСТИРОВАНИЯ МОДЕЛИ
 class TestIn(BaseModel):

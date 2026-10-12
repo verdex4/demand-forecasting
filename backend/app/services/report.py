@@ -5,7 +5,7 @@ import base64
 import io
 from app.settings import REPORTS_DIR, REPORTS_URL
 from typing import Tuple
-from app.database import fetch_query_to_df
+from app.utils import fetch_query_to_df
 from datetime import date, datetime
 from app.models import Report
 from sqlalchemy.ext.asyncio import AsyncSession

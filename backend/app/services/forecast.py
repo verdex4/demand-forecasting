@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from app.database import fetch_query_to_df, fetch_query_to_scalar
+from app.utils import fetch_query_to_df, fetch_query_to_scalar
 from app.services.utils import raise_error
 
 async def make_forecast(

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db, AsyncSessionLocal, fetch_query_to_df, fetch_query_to_scalar
+from app.utils import session, AsyncSessionLocal, fetch_query_to_df, fetch_query_to_scalar
 from app.schemas import ReportCreate, ReportCreateOut, ReportListOut,ReportOut
 from typing import List
 from app.services.forecast import make_forecast
@@ -8,9 +8,9 @@ from app.services.report import make_report
 
 router = APIRouter(prefix="/api/v1/reports", tags=["reports"])
 
-# получить список созданныъ отчётов
+# получить список созданных отчётов
 @router.get("/", response_model=List[ReportListOut])
-async def get_reports(db: AsyncSession = Depends(get_db)):
+async def get_reports(db: AsyncSession = Depends(session)):
     try:
         query = """
             SELECT
@@ -40,7 +40,7 @@ async def get_reports(db: AsyncSession = Depends(get_db)):
 
 # получить отчёт
 @router.get("/{report_id}", response_model=ReportOut)
-async def get_report(report_id: int, db: AsyncSession = Depends(get_db)):
+async def get_report(report_id: int, db: AsyncSession = Depends(session)):
     query = """
         SELECT
             r.html_content
@@ -55,7 +55,7 @@ async def get_report(report_id: int, db: AsyncSession = Depends(get_db)):
 
 # создать отчёт
 @router.post("/", response_model=ReportCreateOut)
-async def create_report(request: Request, params: ReportCreate, db: AsyncSession = Depends(get_db)):
+async def create_report(request: Request, params: ReportCreate, db: AsyncSession = Depends(session)):
     """Создаёт отчёт по указанным параметрам.
     
     Доступные методы:

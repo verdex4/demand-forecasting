@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from app.database import fetch_query_to_df
+from app.utils import fetch_query_to_df
 import asyncio
 from collections import defaultdict
 

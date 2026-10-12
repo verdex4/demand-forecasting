@@ -1,10 +1,10 @@
 from fastapi import FastAPI, Request
 from sqlalchemy import select
-from app.database import engine, Base, AsyncSessionLocal
+from app.utils import engine, Base, AsyncSessionLocal
 from contextlib import asynccontextmanager
 import app.models as models
 from app.seed import seed
-from app.api.v1 import application_stats, specialties, reports, model_errors
+from app.api.v1 import application_stats, specialties, reports, model_errors, auth
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from app.settings import STATIC_DIR, TEMPLATES_DIR, REPORTS_DIR
@@ -72,6 +72,7 @@ async def employee(request: Request):
 async def applicant(request: Request):
     return templates.TemplateResponse(request, "applicant.html")
 
+app.include_router(auth.router)
 app.include_router(application_stats.router)
 app.include_router(specialties.router)
 app.include_router(reports.router)

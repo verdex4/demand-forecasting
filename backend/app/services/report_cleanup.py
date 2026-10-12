@@ -2,7 +2,7 @@ import asyncio
 import logging
 from pathlib import Path
 from sqlalchemy import text
-from app.database import AsyncSessionLocal, fetch_query_to_df
+from app.utils import AsyncSessionLocal, fetch_query_to_df
 from app.settings import REPORTS_DIR, REPORTS_URL
 
 logger = logging.getLogger(__name__)

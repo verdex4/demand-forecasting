@@ -1,4 +1,4 @@
-from app.database import fetch_query_to_df, fetch_query_to_scalar
+from app.utils import fetch_query_to_df, fetch_query_to_scalar
 from app.services.forecast import make_forecast
 import pandas as pd
 from app.services.utils import raise_error

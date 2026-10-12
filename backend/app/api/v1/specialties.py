@@ -3,14 +3,14 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select
-from app.database import get_db
+from app.utils import session
 from app.models import Specialty, ExamSet
 from app.schemas import SpecialtyShortOut, SpecialtyOut
 
 router = APIRouter(prefix="/api/v1/specialties", tags=["specialties"])
 
 @router.get("/short", response_model=List[SpecialtyShortOut])
-async def get_all_specialties_short(db: AsyncSession = Depends(get_db)):
+async def get_all_specialties_short(db: AsyncSession = Depends(session)):
     """Возвращает список специальностей с кодом и названием."""
     statement = (
         select(Specialty)
@@ -21,7 +21,7 @@ async def get_all_specialties_short(db: AsyncSession = Depends(get_db)):
     return specialties
 
 @router.get("/", response_model=List[SpecialtyOut])
-async def get_all_specialties(db: AsyncSession = Depends(get_db)):
+async def get_all_specialties(db: AsyncSession = Depends(session)):
     """Возвращает список специальностей с полной информацией (комплекты ЕГЭ, заявления)."""
     statement = (
         select(Specialty)
