@@ -1,0 +1,7 @@
+fastapi[standard]
+sqlalchemy[asyncio]
+asyncpg
+pandas
+pydantic
+bcrypt
+pyjwt
